@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Volby AI | Volbasty Studios</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
+</head>
+
+
+<body>
+
+
+    <!-- =========================
+         SIDEBAR
+    ========================== -->
+
+    <aside id="sidebar" class="sidebar">
+
+        <div class="sidebar-header">
+
+            <div class="brand-icon">
+                V
+            </div>
+
+            <div>
+
+                <h2>Volby</h2>
+
+                <span>
+                    by Volbasty Studios
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <button
+            class="new-chat"
+            onclick="newChat()"
+        >
+
+            <span>＋</span>
+
+            New Chat
+
+        </button>
+
+
+        <div class="chat-history">
+
+            <p class="history-title">
+                Recent Chats
+            </p>
+
+            <div id="historyList">
+
+                <!-- Chats will appear here -->
+
+            </div>
+
+        </div>
+
+
+        <div class="sidebar-bottom">
+
+            <button onclick="showSettings()">
+
+                ⚙️
+                Settings
+
+            </button>
+
+            <button onclick="showAbout()">
+
+                ℹ️
+                About Volby
+
+            </button>
+
+        </div>
+
+    </aside>
+
+
+    <!-- =========================
+         MAIN APP
+    ========================== -->
+
+    <main class="main">
+
+
+        <!-- Top Bar -->
+
+        <header class="topbar">
+
+            <button
+                class="menu-button"
+                onclick="toggleSidebar()"
+            >
+                ☰
+            </button>
+
+
+            <div class="top-brand">
+
+                <div class="small-logo">
+                    V
+                </div>
+
+                <div>
+
+                    <strong>
+                        Volby
+                    </strong>
+
+                    <span>
+                        AI Assistant
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <button
+                class="clear-button"
+                onclick="clearChat()"
+            >
+
+                🗑️
+
+            </button>
+
+        </header>
+
+
+        <!-- =========================
+             CHAT AREA
+        ========================== -->
+
+        <section
+            id="chatArea"
+            class="chat-area"
+        >
+
+
+            <!-- Welcome Screen -->
+
+            <div
+                id="welcome"
+                class="welcome"
+            >
+
+                <div class="welcome-logo">
+
+                    V
+
+                </div>
+
+
+                <h1>
+                    Hello, I'm Volby.
+                </h1>
+
+
+                <p>
+                    Your AI assistant from
+                    <strong>
+                        Volbasty Studios
+                    </strong>.
+                </p>
+
+
+                <div class="suggestions">
+
+
+                    <button
+                        onclick="useSuggestion('Explain something interesting to me')"
+                    >
+
+                        💡
+                        Explain something
+
+                    </button>
+
+
+                    <button
+                        onclick="useSuggestion('Help me write something')"
+                    >
+
+                        ✍️
+                        Help me write
+
+                    </button>
+
+
+                    <button
+                        onclick="useSuggestion('Help me learn programming')"
+                    >
+
+                        💻
+                        Help me code
+
+                    </button>
+
+
+                    <button
+                        onclick="useSuggestion('Give me a creative project idea')"
+                    >
+
+                        🚀
+                        Give me an idea
+
+                    </button>
+
+
+                </div>
+
+            </div>
+
+
+        </section>
+
+
+        <!-- =========================
+             INPUT AREA
+        ========================== -->
+
+        <div class="input-wrapper">
+
+
+            <div class="input-box">
+
+
+                <textarea
+                    id="messageInput"
+                    placeholder="Message Volby..."
+                    rows="1"
+                    onkeydown="handleKey(event)"
+                ></textarea>
+
+
+                <button
+                    id="sendButton"
+                    onclick="sendMessage()"
+                >
+
+                    ➤
+
+                </button>
+
+
+            </div>
+
+
+            <p class="disclaimer">
+
+                Volby is an AI assistant by
+                <strong>
+                    Volbasty Studios
+                </strong>.
+
+                AI responses may not always be accurate.
+
+            </p>
+
+
+        </div>
+
+
+    </main>
+
+
+    <!-- =========================
+         MODAL
+    ========================== -->
+
+    <div
+        id="modal"
+        class="modal"
+        onclick="closeModal(event)"
+    >
+
+        <div
+            class="modal-content"
+            onclick="event.stopPropagation()"
+        >
+
+            <button
+                class="close-modal"
+                onclick="closeModal()"
+            >
+                ×
+            </button>
+
+
+            <div id="modalContent">
+
+            </div>
+
+
+        </div>
+
+    </div>
+
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
