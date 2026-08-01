@@ -105,6 +105,11 @@
             background: #1d4ed8;
         }
 
+        #send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         @media (max-width: 600px) {
             .message {
                 max-width: 90%;
@@ -140,6 +145,7 @@
                 type="text"
                 id="user-input"
                 placeholder="Message Volby..."
+                autocomplete="off"
             >
 
             <button id="send-button">
@@ -152,61 +158,157 @@
 
     <script>
 
-        const input = document.getElementById("user-input");
-        const sendButton = document.getElementById("send-button");
-        const chat = document.getElementById("chat");
+        // Your Render backend
+        const BACKEND_URL =
+            "https://volby-ai-backend.onrender.com/chat";
 
-        function sendMessage() {
+
+        // Get HTML elements
+        const input =
+            document.getElementById("user-input");
+
+        const sendButton =
+            document.getElementById("send-button");
+
+        const chat =
+            document.getElementById("chat");
+
+
+        // Send message function
+        async function sendMessage() {
 
             const text = input.value.trim();
 
+            // Don't send empty messages
             if (text === "") {
                 return;
             }
 
-            // Add user message
-            const userMessage = document.createElement("div");
 
-            userMessage.className = "message user";
-            userMessage.textContent = text;
+            // Show user's message
+            const userMessage =
+                document.createElement("div");
+
+            userMessage.className =
+                "message user";
+
+            userMessage.textContent =
+                text;
 
             chat.appendChild(userMessage);
+
 
             // Clear input
             input.value = "";
 
-            // Temporary AI message
-            const aiMessage = document.createElement("div");
 
-            aiMessage.className = "message ai";
-            aiMessage.textContent = "I'm thinking...";
+            // Disable button while waiting
+            sendButton.disabled = true;
+
+
+            // Show thinking message
+            const aiMessage =
+                document.createElement("div");
+
+            aiMessage.className =
+                "message ai";
+
+            aiMessage.textContent =
+                "Volby is thinking...";
 
             chat.appendChild(aiMessage);
 
-            // Temporary response
-            setTimeout(function () {
 
+            // Scroll to bottom
+            chat.scrollTop =
+                chat.scrollHeight;
+
+
+            try {
+
+                // Send message to Render backend
+                const response =
+                    await fetch(BACKEND_URL, {
+
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            message: text
+                        })
+
+                    });
+
+
+                // Check for server error
+                if (!response.ok) {
+                    throw new Error(
+                        "Server error: " +
+                        response.status
+                    );
+                }
+
+
+                // Get AI response
+                const data =
+                    await response.json();
+
+
+                // Display Volby's response
                 aiMessage.textContent =
-                    "Hello! This is a temporary Volby response. Soon I'll be connected to a real AI model.";
+                    data.response;
 
-                chat.scrollTop = chat.scrollHeight;
 
-            }, 700);
+            } catch (error) {
 
-            chat.scrollTop = chat.scrollHeight;
-        }
+                console.error(
+                    "Volby Error:",
+                    error
+                );
 
-        // Send button
-        sendButton.addEventListener("click", sendMessage);
 
-        // Press Enter to send
-        input.addEventListener("keydown", function(event) {
+                // Show error
+                aiMessage.textContent =
+                    "Sorry, I couldn't connect to Volby right now. Please try again.";
 
-            if (event.key === "Enter") {
-                sendMessage();
             }
 
-        });
+
+            // Enable button again
+            sendButton.disabled = false;
+
+
+            // Scroll to bottom
+            chat.scrollTop =
+                chat.scrollHeight;
+
+        }
+
+
+        // Send when button is clicked
+        sendButton.addEventListener(
+            "click",
+            sendMessage
+        );
+
+
+        // Send when Enter is pressed
+        input.addEventListener(
+            "keydown",
+            function(event) {
+
+                if (event.key === "Enter") {
+
+                    sendMessage();
+
+                }
+
+            }
+        );
 
     </script>
 
