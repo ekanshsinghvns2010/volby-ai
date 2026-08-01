@@ -1,325 +1,214 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <title>Volby AI</title>
 
-    <title>Volby AI | Volbasty Studios</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-    <link
-        rel="stylesheet"
-        href="style.css"
-    >
+        body {
+            font-family: Arial, sans-serif;
+            background: #0f0f0f;
+            color: white;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
 
+        header {
+            padding: 18px;
+            text-align: center;
+            background: #171717;
+            border-bottom: 1px solid #333;
+        }
+
+        header h1 {
+            font-size: 26px;
+        }
+
+        header p {
+            color: #999;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+
+        #chat {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            max-width: 800px;
+            width: 100%;
+            margin: auto;
+        }
+
+        .message {
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            border-radius: 12px;
+            max-width: 80%;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .ai {
+            background: #242424;
+            margin-right: auto;
+        }
+
+        .user {
+            background: #2563eb;
+            margin-left: auto;
+        }
+
+        #input-area {
+            padding: 15px;
+            background: #171717;
+            border-top: 1px solid #333;
+        }
+
+        #input-box {
+            display: flex;
+            gap: 10px;
+            max-width: 800px;
+            margin: auto;
+        }
+
+        #user-input {
+            flex: 1;
+            padding: 13px;
+            border-radius: 10px;
+            border: 1px solid #444;
+            background: #222;
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+
+        #send-button {
+            padding: 13px 20px;
+            border: none;
+            border-radius: 10px;
+            background: #2563eb;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #send-button:hover {
+            background: #1d4ed8;
+        }
+
+        @media (max-width: 600px) {
+            .message {
+                max-width: 90%;
+            }
+
+            #user-input {
+                min-width: 0;
+            }
+        }
+    </style>
 </head>
-
 
 <body>
 
+    <header>
+        <h1>🤖 Volby AI</h1>
+        <p>Your AI assistant</p>
+    </header>
 
-    <!-- =========================
-         SIDEBAR
-    ========================== -->
+    <main id="chat">
 
-    <aside id="sidebar" class="sidebar">
-
-        <div class="sidebar-header">
-
-            <div class="brand-icon">
-                V
-            </div>
-
-            <div>
-
-                <h2>Volby</h2>
-
-                <span>
-                    by Volbasty Studios
-                </span>
-
-            </div>
-
+        <div class="message ai">
+            Hello! I'm Volby. How can I help you today?
         </div>
-
-
-        <button
-            class="new-chat"
-            onclick="newChat()"
-        >
-
-            <span>＋</span>
-
-            New Chat
-
-        </button>
-
-
-        <div class="chat-history">
-
-            <p class="history-title">
-                Recent Chats
-            </p>
-
-            <div id="historyList">
-
-                <!-- Chats will appear here -->
-
-            </div>
-
-        </div>
-
-
-        <div class="sidebar-bottom">
-
-            <button onclick="showSettings()">
-
-                ⚙️
-                Settings
-
-            </button>
-
-            <button onclick="showAbout()">
-
-                ℹ️
-                About Volby
-
-            </button>
-
-        </div>
-
-    </aside>
-
-
-    <!-- =========================
-         MAIN APP
-    ========================== -->
-
-    <main class="main">
-
-
-        <!-- Top Bar -->
-
-        <header class="topbar">
-
-            <button
-                class="menu-button"
-                onclick="toggleSidebar()"
-            >
-                ☰
-            </button>
-
-
-            <div class="top-brand">
-
-                <div class="small-logo">
-                    V
-                </div>
-
-                <div>
-
-                    <strong>
-                        Volby
-                    </strong>
-
-                    <span>
-                        AI Assistant
-                    </span>
-
-                </div>
-
-            </div>
-
-
-            <button
-                class="clear-button"
-                onclick="clearChat()"
-            >
-
-                🗑️
-
-            </button>
-
-        </header>
-
-
-        <!-- =========================
-             CHAT AREA
-        ========================== -->
-
-        <section
-            id="chatArea"
-            class="chat-area"
-        >
-
-
-            <!-- Welcome Screen -->
-
-            <div
-                id="welcome"
-                class="welcome"
-            >
-
-                <div class="welcome-logo">
-
-                    V
-
-                </div>
-
-
-                <h1>
-                    Hello, I'm Volby.
-                </h1>
-
-
-                <p>
-                    Your AI assistant from
-                    <strong>
-                        Volbasty Studios
-                    </strong>.
-                </p>
-
-
-                <div class="suggestions">
-
-
-                    <button
-                        onclick="useSuggestion('Explain something interesting to me')"
-                    >
-
-                        💡
-                        Explain something
-
-                    </button>
-
-
-                    <button
-                        onclick="useSuggestion('Help me write something')"
-                    >
-
-                        ✍️
-                        Help me write
-
-                    </button>
-
-
-                    <button
-                        onclick="useSuggestion('Help me learn programming')"
-                    >
-
-                        💻
-                        Help me code
-
-                    </button>
-
-
-                    <button
-                        onclick="useSuggestion('Give me a creative project idea')"
-                    >
-
-                        🚀
-                        Give me an idea
-
-                    </button>
-
-
-                </div>
-
-            </div>
-
-
-        </section>
-
-
-        <!-- =========================
-             INPUT AREA
-        ========================== -->
-
-        <div class="input-wrapper">
-
-
-            <div class="input-box">
-
-
-                <textarea
-                    id="messageInput"
-                    placeholder="Message Volby..."
-                    rows="1"
-                    onkeydown="handleKey(event)"
-                ></textarea>
-
-
-                <button
-                    id="sendButton"
-                    onclick="sendMessage()"
-                >
-
-                    ➤
-
-                </button>
-
-
-            </div>
-
-
-            <p class="disclaimer">
-
-                Volby is an AI assistant by
-                <strong>
-                    Volbasty Studios
-                </strong>.
-
-                AI responses may not always be accurate.
-
-            </p>
-
-
-        </div>
-
 
     </main>
 
+    <div id="input-area">
 
-    <!-- =========================
-         MODAL
-    ========================== -->
+        <div id="input-box">
 
-    <div
-        id="modal"
-        class="modal"
-        onclick="closeModal(event)"
-    >
-
-        <div
-            class="modal-content"
-            onclick="event.stopPropagation()"
-        >
-
-            <button
-                class="close-modal"
-                onclick="closeModal()"
+            <input
+                type="text"
+                id="user-input"
+                placeholder="Message Volby..."
             >
-                ×
+
+            <button id="send-button">
+                Send
             </button>
-
-
-            <div id="modalContent">
-
-            </div>
-
 
         </div>
 
     </div>
 
+    <script>
 
-    <script src="script.js"></script>
+        const input = document.getElementById("user-input");
+        const sendButton = document.getElementById("send-button");
+        const chat = document.getElementById("chat");
+
+        function sendMessage() {
+
+            const text = input.value.trim();
+
+            if (text === "") {
+                return;
+            }
+
+            // Add user message
+            const userMessage = document.createElement("div");
+
+            userMessage.className = "message user";
+            userMessage.textContent = text;
+
+            chat.appendChild(userMessage);
+
+            // Clear input
+            input.value = "";
+
+            // Temporary AI message
+            const aiMessage = document.createElement("div");
+
+            aiMessage.className = "message ai";
+            aiMessage.textContent = "I'm thinking...";
+
+            chat.appendChild(aiMessage);
+
+            // Temporary response
+            setTimeout(function () {
+
+                aiMessage.textContent =
+                    "Hello! This is a temporary Volby response. Soon I'll be connected to a real AI model.";
+
+                chat.scrollTop = chat.scrollHeight;
+
+            }, 700);
+
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        // Send button
+        sendButton.addEventListener("click", sendMessage);
+
+        // Press Enter to send
+        input.addEventListener("keydown", function(event) {
+
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+
+        });
+
+    </script>
 
 </body>
-
 </html>
