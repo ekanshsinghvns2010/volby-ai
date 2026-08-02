@@ -1,425 +1,221 @@
-// =========================
-// Variables
-// =========================
-
-let chats = [];
+// ==========================================
+// Volby AI - Frontend
+// ==========================================
 
 
-// =========================
-// Mobile Sidebar
-// =========================
-
-function toggleSidebar() {
-
-    const sidebar =
-        document.getElementById("sidebar");
-
-    sidebar.classList.toggle("open");
-
-}
+// Your Render backend
+const BACKEND_URL =
+    "https://volby-ai-backend.onrender.com/chat";
 
 
-// =========================
+// ==========================================
+// Conversation Memory
+// ==========================================
+
+// This stores the conversation during the
+// current browser session.
+const messages = [];
+
+
+// ==========================================
+// Get HTML Elements
+// ==========================================
+
+const input =
+    document.getElementById("user-input");
+
+const sendButton =
+    document.getElementById("send-button");
+
+const chat =
+    document.getElementById("chat");
+
+
+// ==========================================
 // Send Message
-// =========================
+// ==========================================
 
-function sendMessage() {
-
-    const input =
-        document.getElementById("messageInput");
+async function sendMessage() {
 
     const text =
         input.value.trim();
 
 
-    if (!text) {
-
+    // Don't send empty messages
+    if (text === "") {
         return;
-
     }
 
 
-    // Remove welcome screen
+    // ======================================
+    // Show User Message
+    // ======================================
 
-    const welcome =
-        document.getElementById("welcome");
+    const userMessage =
+        document.createElement("div");
 
-    if (welcome) {
+    userMessage.className =
+        "message user";
 
-        welcome.remove();
+    userMessage.textContent =
+        text;
 
-    }
-
-
-    // Add user message
-
-    addMessage(
-        text,
-        "user"
-    );
-
-
-    // Save history
-
-    chats.push(text);
-
-    updateHistory();
+    chat.appendChild(userMessage);
 
 
     // Clear input
-
     input.value = "";
 
-    input.style.height = "auto";
+
+    // Disable button while waiting
+    sendButton.disabled = true;
 
 
-    // Temporary Volby response
+    // ======================================
+    // Show Thinking Message
+    // ======================================
 
-    setTimeout(
-        () => {
-
-            addMessage(
-                "Hello! I'm Volby, your AI assistant from Volbasty Studios. My AI engine isn't connected yet, but my interface is ready! 🤖",
-                "ai"
-            );
-
-        },
-        600
-    );
-
-}
-
-
-// =========================
-// Add Message
-// =========================
-
-function addMessage(
-    text,
-    type
-) {
-
-    const chatArea =
-        document.getElementById("chatArea");
-
-
-    const message =
+    const aiMessage =
         document.createElement("div");
 
+    aiMessage.className =
+        "message ai";
 
-    message.className =
-        `message ${type}-message`;
+    aiMessage.textContent =
+        "Volby is thinking...";
 
-
-    const avatar =
-        document.createElement("div");
-
-
-    avatar.className =
-        `avatar ${type}-avatar`;
-
-
-    avatar.textContent =
-        type === "user"
-            ? "You"
-            : "V";
-
-
-    const content =
-        document.createElement("div");
-
-
-    content.className =
-        "message-content";
-
-
-    content.textContent =
-        text;
-
-
-    message.appendChild(
-        avatar
-    );
-
-
-    message.appendChild(
-        content
-    );
-
-
-    chatArea.appendChild(
-        message
-    );
+    chat.appendChild(aiMessage);
 
 
     // Scroll to bottom
-
-    chatArea.scrollTo({
-
-        top:
-            chatArea.scrollHeight,
-
-        behavior:
-            "smooth"
-
-    });
-
-}
+    chat.scrollTop =
+        chat.scrollHeight;
 
 
-// =========================
-// Suggestion Buttons
-// =========================
+    try {
 
-function useSuggestion(
-    text
-) {
+        // ==================================
+        // Add Current User Message
+        // ==================================
 
-    const input =
-        document.getElementById(
-            "messageInput"
+        messages.push({
+            role: "user",
+            content: text
+        });
+
+
+        // ==================================
+        // Send Entire Conversation
+        // ==================================
+
+        const response =
+            await fetch(BACKEND_URL, {
+
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+                    message: messages
+                })
+
+            });
+
+
+        // Check for server error
+        if (!response.ok) {
+
+            throw new Error(
+                "Server error: " +
+                response.status
+            );
+
+        }
+
+
+        // ==================================
+        // Get AI Response
+        // ==================================
+
+        const data =
+            await response.json();
+
+
+        // ==================================
+        // Save AI Response to Memory
+        // ==================================
+
+        messages.push({
+            role: "assistant",
+            content: data.response
+        });
+
+
+        // ==================================
+        // Display Volby's Response
+        // ==================================
+
+        aiMessage.textContent =
+            data.response;
+
+
+    } catch (error) {
+
+        console.error(
+            "Volby Error:",
+            error
         );
 
 
-    input.value =
-        text;
+        // Remove the user message from
+        // memory if the request failed
+        messages.pop();
 
 
-    input.focus();
-
-}
-
-
-// =========================
-// Enter to Send
-// =========================
-
-function handleKey(event) {
-
-    if (
-        event.key === "Enter" &&
-        !event.shiftKey
-    ) {
-
-        event.preventDefault();
-
-        sendMessage();
+        // Show error
+        aiMessage.textContent =
+            "Sorry, I couldn't connect to Volby right now. Please try again.";
 
     }
 
-}
+
+    // Enable button again
+    sendButton.disabled = false;
 
 
-// =========================
-// New Chat
-// =========================
-
-function newChat() {
-
-    const chatArea =
-        document.getElementById(
-            "chatArea"
-        );
-
-
-    chatArea.innerHTML = `
-
-        <div
-            id="welcome"
-            class="welcome"
-        >
-
-            <div class="welcome-logo">
-                V
-            </div>
-
-            <h1>
-                Hello, I'm Volby.
-            </h1>
-
-            <p>
-                Your AI assistant from
-                <strong>
-                    Volbasty Studios
-                </strong>.
-            </p>
-
-        </div>
-
-    `;
+    // Scroll to bottom
+    chat.scrollTop =
+        chat.scrollHeight;
 
 }
 
 
-// =========================
-// Clear Chat
-// =========================
+// ==========================================
+// Send When Button Is Clicked
+// ==========================================
 
-function clearChat() {
+sendButton.addEventListener(
+    "click",
+    sendMessage
+);
 
-    newChat();
 
-}
+// ==========================================
+// Send When Enter Is Pressed
+// ==========================================
 
+input.addEventListener(
+    "keydown",
+    function(event) {
 
-// =========================
-// Chat History
-// =========================
+        if (event.key === "Enter") {
 
-function updateHistory() {
+            sendMessage();
 
-    const history =
-        document.getElementById(
-            "historyList"
-        );
-
-
-    history.innerHTML = "";
-
-
-    chats
-        .slice(-10)
-        .reverse()
-        .forEach(
-            chat => {
-
-                const item =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                item.className =
-                    "history-item";
-
-
-                item.textContent =
-                    chat;
-
-
-                history.appendChild(
-                    item
-                );
-
-            }
-        );
-
-}
-
-
-// =========================
-// Settings
-// =========================
-
-function showSettings() {
-
-    const content =
-        document.getElementById(
-            "modalContent"
-        );
-
-
-    content.innerHTML = `
-
-        <h2>Volby Settings</h2>
-
-        <br>
-
-        <p>
-            ⚙️ Settings will be available
-            in a future version.
-        </p>
-
-        <br>
-
-        <p style="color:#777">
-
-            Volby v1.0
-
-            <br>
-
-            Built by Volbasty Studios
-
-        </p>
-
-    `;
-
-
-    openModal();
-
-}
-
-
-// =========================
-// About
-// =========================
-
-function showAbout() {
-
-    const content =
-        document.getElementById(
-            "modalContent"
-        );
-
-
-    content.innerHTML = `
-
-        <h2>About Volby</h2>
-
-        <br>
-
-        <p>
-
-            Volby is an AI assistant
-            created by Volbasty Studios.
-
-        </p>
-
-        <br>
-
-        <p style="color:#777">
-
-            Our goal is to build useful,
-            creative and accessible AI tools.
-
-        </p>
-
-    `;
-
-
-    openModal();
-
-}
-
-
-// =========================
-// Modal
-// =========================
-
-function openModal() {
-
-    document
-        .getElementById("modal")
-        .classList
-        .add("show");
-
-}
-
-
-function closeModal(
-    event
-) {
-
-    if (
-        !event ||
-        event.target.id === "modal"
-    ) {
-
-        document
-            .getElementById("modal")
-            .classList
-            .remove("show");
+        }
 
     }
-
-}
+);
