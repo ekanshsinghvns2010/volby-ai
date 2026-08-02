@@ -1311,4 +1311,318 @@ input.addEventListener(
 
             event.preventDefault();
 
-  
+              sendMessage();
+
+        }
+
+    }
+);
+
+
+/* ========================================= */
+/* SUGGESTIONS */
+/* ========================================= */
+
+suggestions.forEach(
+    suggestion => {
+
+        suggestion.addEventListener(
+            "click",
+            () => {
+
+                input.value =
+                    suggestion.dataset.prompt;
+
+                updateCharacterCount();
+
+                autoResize();
+
+                input.focus();
+
+            }
+        );
+
+    }
+);
+
+
+/* ========================================= */
+/* SCROLL */
+/* ========================================= */
+
+function scrollToBottom() {
+
+    const chat =
+        document.getElementById(
+            "chat"
+        );
+
+    setTimeout(
+        () => {
+
+            chat.scrollTop =
+                chat.scrollHeight;
+
+        },
+        50
+    );
+
+}
+
+
+/* ========================================= */
+/* CHAT HISTORY */
+/* ========================================= */
+
+function saveCurrentChat(
+    firstMessage
+) {
+
+    const title =
+        firstMessage.length > 35
+
+            ? firstMessage.substring(
+                0,
+                35
+            ) + "..."
+
+            : firstMessage;
+
+    const chat = {
+
+        title: title,
+
+        messages:
+            [...messages],
+
+        timestamp:
+            Date.now()
+
+    };
+
+    chatHistory.unshift(
+        chat
+    );
+
+    chatHistory =
+        chatHistory.slice(
+            0,
+            20
+        );
+
+    localStorage.setItem(
+        "volby_chat_history",
+        JSON.stringify(
+            chatHistory
+        )
+    );
+
+    renderHistory();
+
+}
+
+
+/* ========================================= */
+/* RENDER HISTORY */
+/* ========================================= */
+
+function renderHistory() {
+
+    historyList.innerHTML =
+        "";
+
+    if (
+        chatHistory.length === 0
+    ) {
+
+        emptyHistory.style.display =
+            "block";
+
+        return;
+
+    }
+
+    emptyHistory.style.display =
+        "none";
+
+    chatHistory.forEach(
+        (chat, index) => {
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+            button.className =
+                "history-item";
+
+            button.innerHTML = `
+
+                <span class="history-icon">
+                    💬
+                </span>
+
+                <span class="history-title">
+                    ${escapeHTML(
+                        chat.title
+                    )}
+                </span>
+
+            `;
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    loadChat(
+                        index
+                    );
+
+                }
+            );
+
+            historyList.appendChild(
+                button
+            );
+
+        }
+    );
+
+}
+
+
+/* ========================================= */
+/* LOAD CHAT */
+/* ========================================= */
+
+function loadChat(
+    index
+) {
+
+    const chat =
+        chatHistory[index];
+
+    if (!chat) {
+
+        return;
+
+    }
+
+    messages =
+        [...chat.messages];
+
+    messagesContainer
+        .innerHTML = "";
+
+    welcomeScreen.style.display =
+        "none";
+
+    messages.forEach(
+        message => {
+
+            const messageElement =
+                addMessage(
+                    message.content,
+                    message.role === "assistant"
+                        ? "ai"
+                        : message.role
+                );
+
+            if (
+                message.role === "assistant"
+            ) {
+
+                addResponseCopyButton(
+                    messageElement,
+                    message.content
+                );
+
+            }
+
+        }
+    );
+
+    closeSidebarMenu();
+
+    scrollToBottom();
+
+}
+
+
+/* ========================================= */
+/* ESCAPE HTML */
+/* ========================================= */
+
+function escapeHTML(
+    text
+) {
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+    div.textContent =
+        text;
+
+    return div.innerHTML;
+
+}
+
+
+/* ========================================= */
+/* ABOUT MODAL */
+/* ========================================= */
+
+aboutButton.addEventListener(
+    "click",
+    () => {
+
+        aboutModal.classList.remove(
+            "hidden"
+        );
+
+    }
+);
+
+
+closeAbout.addEventListener(
+    "click",
+    () => {
+
+        aboutModal.classList.add(
+            "hidden"
+        );
+
+    }
+);
+
+
+aboutModal.addEventListener(
+    "click",
+    event => {
+
+        if (
+            event.target ===
+            aboutModal
+        ) {
+
+            aboutModal.classList.add(
+                "hidden"
+            );
+
+        }
+
+    }
+);
+
+
+/* ========================================= */
+/* INITIALIZE */
+/* ========================================= */
+
+renderHistory();
+
+updateCharacterCount();
+
+autoResize();
