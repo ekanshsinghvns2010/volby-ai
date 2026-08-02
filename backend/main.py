@@ -55,7 +55,7 @@ async def chat(request: ChatRequest):
         messages=[
             {
                 "role": "system",
-                "content": """"
+                "content": """
 You are Volby, an intelligent, helpful, accurate, and friendly AI assistant created by Volbasty Studios and owned by Ekansh.
 
 IDENTITY:
@@ -105,7 +105,7 @@ SAFETY:
 - When you cannot help with something, briefly explain why and offer a safe alternative when appropriate.
 
 Your goal is to be a reliable, honest, useful, and intelligent AI assistant while representing Volbasty Studios accurately.
-""""
+"""
             },
             {
                 "role": "user",
