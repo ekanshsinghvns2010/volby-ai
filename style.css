@@ -1817,3 +1817,116 @@ body[data-theme="sunset"] {
     max-height: 45px;
     object-fit: contain;
 }
+/* ========================================= */
+/* AI RESPONSE FORMATTING */
+/* ========================================= */
+
+.message.ai p {
+    margin: 0 0 10px;
+}
+
+.message.ai p:last-child {
+    margin-bottom: 0;
+}
+
+.message.ai strong {
+    font-weight: 700;
+}
+
+.message.ai h3 {
+    margin: 8px 0 12px;
+    font-size: 18px;
+}
+
+.message.ai ul,
+.message.ai ol {
+    margin: 8px 0 12px 20px;
+}
+
+.message.ai li {
+    margin: 5px 0;
+}
+
+.text-spacer {
+    height: 6px;
+}
+
+
+/* ========================================= */
+/* CODE BLOCK */
+/* ========================================= */
+
+.code-block {
+    margin: 14px 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #0d1117;
+}
+
+.code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.code-language {
+    font-size: 11px;
+    color: #aebed7;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.code-copy-button {
+    border: none;
+    background: transparent;
+    color: #c9d1d9;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.code-copy-button:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
+}
+
+.code-block pre {
+    margin: 0;
+    padding: 14px;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.code-block code {
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+
+    font-size: 13px;
+    line-height: 1.6;
+    color: #e6edf3;
+}
+
+
+/* Main response copy button */
+
+.message-actions {
+    margin-top: 10px;
+}
+
+.copy-button {
+    padding: 5px 10px;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.copy-button:hover {
+    background: var(--surface-2);
+}
