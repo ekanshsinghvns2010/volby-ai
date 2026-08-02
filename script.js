@@ -119,7 +119,7 @@ async function sendMessage() {
                 },
 
                 body: JSON.stringify({
-                    message: messages
+                    messages: messages
                 })
 
             });
