@@ -1,65 +1,22 @@
-// ==========================================
-// VOLBY AI
-// MAIN JAVASCRIPT
-// ==========================================
+/* ========================================= */
+/* VOLBY AI - FRONTEND */
+/* ========================================= */
 
 
-// ==========================================
-// BACKEND
-// ==========================================
+/* ========================================= */
+/* BACKEND */
+/* ========================================= */
 
 const BACKEND_URL =
     "https://volby-ai-backend.onrender.com/chat";
 
 
-// ==========================================
-// MEMORY
-// ==========================================
+/* ========================================= */
+/* ELEMENTS */
+/* ========================================= */
 
-// Conversation memory for current session
-
-let messages = [];
-
-
-// ==========================================
-// GET ELEMENTS
-// ==========================================
-
-const input =
-    document.getElementById("user-input");
-
-const sendButton =
-    document.getElementById("send-button");
-
-const messagesContainer =
-    document.getElementById("messages-container");
-
-const welcomeScreen =
-    document.getElementById("welcome-screen");
-
-const characterCount =
-    document.getElementById("character-count");
-
-const themeButton =
-    document.getElementById("theme-button");
-
-const themeMenu =
-    document.getElementById("theme-menu");
-
-const newChatButton =
-    document.getElementById("new-chat-button");
-
-const headerNewChat =
-    document.getElementById("header-new-chat");
-
-const clearChatButton =
-    document.getElementById("clear-chat-button");
-
-const openSidebar =
-    document.getElementById("open-sidebar");
-
-const closeSidebar =
-    document.getElementById("close-sidebar");
+const body =
+    document.body;
 
 const sidebar =
     document.getElementById("sidebar");
@@ -67,105 +24,136 @@ const sidebar =
 const sidebarOverlay =
     document.getElementById("sidebar-overlay");
 
+const menuButton =
+    document.getElementById("menu-button");
 
-// ==========================================
-// THEME SYSTEM
-// ==========================================
+const closeSidebar =
+    document.getElementById("close-sidebar");
+
+const newChatButton =
+    document.getElementById("new-chat-button");
+
+const historyList =
+    document.getElementById("history-list");
+
+const emptyHistory =
+    document.getElementById("empty-history");
+
+const messagesContainer =
+    document.getElementById("messages");
+
+const welcomeScreen =
+    document.getElementById("welcome-screen");
+
+const input =
+    document.getElementById("user-input");
+
+const sendButton =
+    document.getElementById("send-button");
+
+const characterCount =
+    document.getElementById("character-count");
+
+const themeButtons =
+    document.querySelectorAll(".theme-circle");
+
+const aboutButton =
+    document.getElementById("about-button");
+
+const aboutModal =
+    document.getElementById("about-modal");
+
+const closeAbout =
+    document.getElementById("close-about");
+
+const suggestions =
+    document.querySelectorAll(".suggestion");
+
+
+/* ========================================= */
+/* MEMORY */
+/* ========================================= */
+
+let messages = [];
+
+let chatHistory =
+    JSON.parse(
+        localStorage.getItem(
+            "volby_chat_history"
+        )
+    ) || [];
+
+
+/* ========================================= */
+/* THEME */
+/* ========================================= */
 
 const savedTheme =
-    localStorage.getItem("volby-theme")
-    || "midnight";
+    localStorage.getItem(
+        "volby_theme"
+    ) || "midnight";
 
 
-document.body.dataset.theme =
-    savedTheme;
+setTheme(savedTheme);
 
 
 function setTheme(theme) {
 
-    document.body.dataset.theme =
+    body.dataset.theme =
         theme;
 
     localStorage.setItem(
-        "volby-theme",
+        "volby_theme",
         theme
     );
 
-    themeMenu.classList.add(
-        "hidden"
+
+    themeButtons.forEach(
+        button => {
+
+            button.classList.toggle(
+                "active",
+                button.dataset.theme === theme
+            );
+
+        }
     );
+
 }
 
 
-document
-    .querySelectorAll(".theme-option")
-    .forEach(button => {
+/* Theme buttons */
+
+themeButtons.forEach(
+    button => {
 
         button.addEventListener(
             "click",
             () => {
 
-                const theme =
-                    button.dataset.theme;
-
-                setTheme(theme);
+                setTheme(
+                    button.dataset.theme
+                );
 
             }
         );
 
-    });
-
-
-// Open theme menu
-
-themeButton.addEventListener(
-    "click",
-    event => {
-
-        event.stopPropagation();
-
-        themeMenu.classList.toggle(
-            "hidden"
-        );
-
     }
 );
 
 
-// Close theme menu when clicking outside
+/* ========================================= */
+/* SIDEBAR */
+/* ========================================= */
 
-document.addEventListener(
-    "click",
-    event => {
-
-        if (
-            !themeMenu.contains(event.target)
-            &&
-            !themeButton.contains(event.target)
-        ) {
-
-            themeMenu.classList.add(
-                "hidden"
-            );
-
-        }
-
-    }
-);
-
-
-// ==========================================
-// SIDEBAR
-// ==========================================
-
-function openSidebarMenu() {
+function openSidebar() {
 
     sidebar.classList.add(
         "open"
     );
 
-    sidebarOverlay.classList.remove(
-        "hidden"
+    sidebarOverlay.classList.add(
+        "active"
     );
 
 }
@@ -177,16 +165,16 @@ function closeSidebarMenu() {
         "open"
     );
 
-    sidebarOverlay.classList.add(
-        "hidden"
+    sidebarOverlay.classList.remove(
+        "active"
     );
 
 }
 
 
-openSidebar.addEventListener(
+menuButton.addEventListener(
     "click",
-    openSidebarMenu
+    openSidebar
 );
 
 
@@ -202,11 +190,65 @@ sidebarOverlay.addEventListener(
 );
 
 
-// ==========================================
-// AUTO GROW TEXTAREA
-// ==========================================
+/* ========================================= */
+/* NEW CHAT */
+/* ========================================= */
 
-function resizeInput() {
+newChatButton.addEventListener(
+    "click",
+    () => {
+
+        messages = [];
+
+        messagesContainer
+            .innerHTML = "";
+
+        messagesContainer
+            .appendChild(
+                welcomeScreen
+            );
+
+        input.value = "";
+
+        updateCharacterCount();
+
+        closeSidebarMenu();
+
+        input.focus();
+
+    }
+);
+
+
+/* ========================================= */
+/* CHARACTER COUNT */
+/* ========================================= */
+
+input.addEventListener(
+    "input",
+    () => {
+
+        updateCharacterCount();
+
+        autoResize();
+
+    }
+);
+
+
+function updateCharacterCount() {
+
+    characterCount.textContent =
+        `${input.value.length} / 10000`;
+
+}
+
+
+/* ========================================= */
+/* AUTO RESIZE INPUT */
+/* ========================================= */
+
+function autoResize() {
 
     input.style.height =
         "auto";
@@ -220,96 +262,44 @@ function resizeInput() {
 }
 
 
-input.addEventListener(
-    "input",
-    () => {
+/* ========================================= */
+/* ADD MESSAGE */
+/* ========================================= */
 
-        resizeInput();
+function addMessage(
+    content,
+    role
+) {
 
-        characterCount.textContent =
-            `${input.value.length} / 10000`;
+    welcomeScreen.style.display =
+        "none";
 
-    }
-);
-
-
-// ==========================================
-// SCROLL
-// ==========================================
-
-function scrollToBottom() {
-
-    const chat =
-        document.getElementById("chat");
-
-    chat.scrollTop =
-        chat.scrollHeight;
-
-}
-
-
-// ==========================================
-// SHOW / HIDE WELCOME
-// ==========================================
-
-function updateWelcomeScreen() {
-
-    if (messages.length > 0) {
-
-        welcomeScreen.classList.add(
-            "hidden"
-        );
-
-    } else {
-
-        welcomeScreen.classList.remove(
-            "hidden"
-        );
-
-    }
-
-}
-
-
-// ==========================================
-// ADD USER MESSAGE
-// ==========================================
-
-function addUserMessage(text) {
 
     const row =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     row.className =
-        "message-row user";
+        "message-row " +
+        role;
 
 
-    const avatar =
-        document.createElement("div");
+    const message =
+        document.createElement(
+            "div"
+        );
 
-    avatar.className =
-        "avatar";
+    message.className =
+        "message " +
+        role;
 
-    avatar.textContent =
-        "👤";
-
-
-    const content =
-        document.createElement("div");
-
-    content.className =
-        "message-content";
-
-    content.textContent =
-        text;
+    message.textContent =
+        content;
 
 
     row.appendChild(
-        content
-    );
-
-    row.appendChild(
-        avatar
+        message
     );
 
 
@@ -320,73 +310,55 @@ function addUserMessage(text) {
 
     scrollToBottom();
 
+
+    return message;
+
 }
 
 
-// ==========================================
-// THINKING MESSAGE
-// ==========================================
+/* ========================================= */
+/* THINKING MESSAGE */
+/* ========================================= */
 
-function createThinkingMessage() {
+function addThinkingMessage() {
+
+    welcomeScreen.style.display =
+        "none";
+
 
     const row =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     row.className =
         "message-row ai";
 
 
-    const avatar =
-        document.createElement("div");
-
-    avatar.className =
-        "avatar";
-
-    avatar.textContent =
-        "🤖";
-
-
-    const content =
-        document.createElement("div");
-
-    content.className =
-        "message-content";
-
-
-    const thinking =
-        document.createElement("div");
-
-    thinking.className =
-        "thinking";
-
-
-    for (
-        let i = 0;
-        i < 3;
-        i++
-    ) {
-
-        const dot =
-            document.createElement("span");
-
-        thinking.appendChild(
-            dot
+    const message =
+        document.createElement(
+            "div"
         );
 
-    }
+    message.className =
+        "message ai";
 
 
-    content.appendChild(
-        thinking
-    );
+    message.innerHTML = `
+
+        <div class="thinking">
+
+            <span></span>
+            <span></span>
+            <span></span>
+
+        </div>
+
+    `;
 
 
     row.appendChild(
-        avatar
-    );
-
-    row.appendChild(
-        content
+        message
     );
 
 
@@ -398,149 +370,24 @@ function createThinkingMessage() {
     scrollToBottom();
 
 
-    return {
-        row,
-        content
-    };
+    return row;
 
 }
 
 
-// ==========================================
-// ADD AI MESSAGE
-// ==========================================
-
-function addAIMessage(text) {
-
-    const row =
-        document.createElement("div");
-
-    row.className =
-        "message-row ai";
-
-
-    const avatar =
-        document.createElement("div");
-
-    avatar.className =
-        "avatar";
-
-    avatar.textContent =
-        "🤖";
-
-
-    const wrapper =
-        document.createElement("div");
-
-
-    const content =
-        document.createElement("div");
-
-    content.className =
-        "message-content";
-
-    content.textContent =
-        text;
-
-
-    const actions =
-        document.createElement("div");
-
-    actions.className =
-        "message-actions";
-
-
-    const copyButton =
-        document.createElement("button");
-
-    copyButton.className =
-        "message-action";
-
-    copyButton.textContent =
-        "📋 Copy";
-
-
-    copyButton.addEventListener(
-        "click",
-        async () => {
-
-            try {
-
-                await navigator.clipboard
-                    .writeText(text);
-
-                copyButton.textContent =
-                    "✓ Copied";
-
-                setTimeout(
-                    () => {
-
-                        copyButton.textContent =
-                            "📋 Copy";
-
-                    },
-                    1500
-                );
-
-            } catch {
-
-                copyButton.textContent =
-                    "Copy failed";
-
-            }
-
-        }
-    );
-
-
-    actions.appendChild(
-        copyButton
-    );
-
-
-    wrapper.appendChild(
-        content
-    );
-
-    wrapper.appendChild(
-        actions
-    );
-
-
-    row.appendChild(
-        avatar
-    );
-
-    row.appendChild(
-        wrapper
-    );
-
-
-    messagesContainer.appendChild(
-        row
-    );
-
-
-    scrollToBottom();
-
-}
-
-
-// ==========================================
-// SEND MESSAGE
-// ==========================================
+/* ========================================= */
+/* SEND MESSAGE */
+/* ========================================= */
 
 async function sendMessage() {
+
 
     const text =
         input.value.trim();
 
 
-    // Don't send empty message
-
     if (
-        text === ""
-        ||
+        text === "" ||
         sendButton.disabled
     ) {
 
@@ -549,21 +396,7 @@ async function sendMessage() {
     }
 
 
-    // Hide welcome screen
-
-    welcomeScreen.classList.add(
-        "hidden"
-    );
-
-
-    // Show user message
-
-    addUserMessage(
-        text
-    );
-
-
-    // Add to memory
+    /* Add user message */
 
     messages.push({
 
@@ -574,35 +407,37 @@ async function sendMessage() {
     });
 
 
-    // Clear input
+    addMessage(
+        text,
+        "user"
+    );
+
+
+    /* Clear input */
 
     input.value = "";
 
-    input.style.height =
-        "auto";
+    updateCharacterCount();
 
-    characterCount.textContent =
-        "0 / 10000";
+    autoResize();
 
 
-    // Disable send
+    /* Disable sending */
 
     sendButton.disabled =
         true;
 
 
-    // Thinking animation
+    /* Thinking */
 
     const thinking =
-        createThinkingMessage();
+        addThinkingMessage();
 
 
     try {
 
 
-        // ==================================
-        // SEND TO BACKEND
-        // ==================================
+        /* Send conversation */
 
         const response =
             await fetch(
@@ -630,35 +465,33 @@ async function sendMessage() {
             );
 
 
-        // Server error
-
         if (
             !response.ok
         ) {
 
             throw new Error(
-                `Server returned ${response.status}`
+                "Server Error: " +
+                response.status
             );
 
         }
 
-
-        // Get response
 
         const data =
             await response.json();
 
 
         const answer =
-            data.response;
+            data.response ||
+            "I couldn't generate a response.";
 
 
-        // Remove thinking
+        /* Remove thinking */
 
-        thinking.row.remove();
+        thinking.remove();
 
 
-        // Add AI response to memory
+        /* Add AI response */
 
         messages.push({
 
@@ -669,10 +502,77 @@ async function sendMessage() {
         });
 
 
-        // Display response
+        const aiMessage =
+            addMessage(
+                answer,
+                "ai"
+            );
 
-        addAIMessage(
-            answer
+
+        /* Add copy button */
+
+        const actions =
+            document.createElement(
+                "div"
+            );
+
+        actions.className =
+            "message-actions";
+
+
+        const copyButton =
+            document.createElement(
+                "button"
+            );
+
+        copyButton.className =
+            "copy-button";
+
+        copyButton.textContent =
+            "Copy";
+
+
+        copyButton.addEventListener(
+            "click",
+            async () => {
+
+                await navigator.clipboard
+                    .writeText(
+                        answer
+                    );
+
+                copyButton.textContent =
+                    "Copied!";
+
+
+                setTimeout(
+                    () => {
+
+                        copyButton.textContent =
+                            "Copy";
+
+                    },
+                    1500
+                );
+
+            }
+        );
+
+
+        actions.appendChild(
+            copyButton
+        );
+
+
+        aiMessage.appendChild(
+            actions
+        );
+
+
+        /* Save chat */
+
+        saveCurrentChat(
+            text
         );
 
 
@@ -685,26 +585,24 @@ async function sendMessage() {
         );
 
 
-        // Remove thinking
-
-        thinking.row.remove();
+        thinking.remove();
 
 
-        // Remove failed user message
+        addMessage(
+
+            "Sorry, I couldn't connect to Volby right now. Please try again.",
+
+            "ai"
+
+        );
+
+
+        /* Remove failed message */
 
         messages.pop();
 
-
-        // Show error
-
-        addAIMessage(
-            "Sorry, I couldn't connect to Volby right now. Please try again."
-        );
-
     }
 
-
-    // Enable send
 
     sendButton.disabled =
         false;
@@ -712,12 +610,13 @@ async function sendMessage() {
 
     input.focus();
 
+
 }
 
 
-// ==========================================
-// SEND BUTTON
-// ==========================================
+/* ========================================= */
+/* SEND BUTTON */
+/* ========================================= */
 
 sendButton.addEventListener(
     "click",
@@ -725,17 +624,16 @@ sendButton.addEventListener(
 );
 
 
-// ==========================================
-// ENTER KEY
-// ==========================================
+/* ========================================= */
+/* KEYBOARD */
+/* ========================================= */
 
 input.addEventListener(
     "keydown",
     event => {
 
         if (
-            event.key === "Enter"
-            &&
+            event.key === "Enter" &&
             !event.shiftKey
         ) {
 
@@ -749,112 +647,317 @@ input.addEventListener(
 );
 
 
-// ==========================================
-// SUGGESTION CARDS
-// ==========================================
+/* ========================================= */
+/* SUGGESTIONS */
+/* ========================================= */
 
-document
-    .querySelectorAll(
-        ".suggestion-card"
-    )
-    .forEach(card => {
+suggestions.forEach(
+    suggestion => {
 
-        card.addEventListener(
+        suggestion.addEventListener(
             "click",
             () => {
 
-                const prompt =
-                    card.dataset.prompt;
-
                 input.value =
-                    prompt;
+                    suggestion.dataset.prompt;
 
-                resizeInput();
+                updateCharacterCount();
 
-                characterCount.textContent =
-                    `${input.value.length} / 10000`;
+                autoResize();
 
                 input.focus();
 
             }
         );
 
-    });
-
-
-// ==========================================
-// NEW CHAT
-// ==========================================
-
-function startNewChat() {
-
-    messages = [];
-
-    messagesContainer.innerHTML =
-        "";
-
-    input.value =
-        "";
-
-    input.style.height =
-        "auto";
-
-    characterCount.textContent =
-        "0 / 10000";
-
-    updateWelcomeScreen();
-
-    closeSidebarMenu();
-
-    input.focus();
-
-}
-
-
-newChatButton.addEventListener(
-    "click",
-    startNewChat
+    }
 );
 
 
-if (headerNewChat) {
+/* ========================================= */
+/* SCROLL */
+/* ========================================= */
 
-    headerNewChat.addEventListener(
-        "click",
-        startNewChat
+function scrollToBottom() {
+
+    const chat =
+        document.getElementById(
+            "chat"
+        );
+
+
+    setTimeout(
+        () => {
+
+            chat.scrollTop =
+                chat.scrollHeight;
+
+        },
+        50
     );
 
 }
 
 
-// ==========================================
-// CLEAR CONVERSATION
-// ==========================================
+/* ========================================= */
+/* CHAT HISTORY */
+/* ========================================= */
 
-clearChatButton.addEventListener(
-    "click",
-    () => {
-
-        if (
-            messages.length === 0
-        ) {
-
-            return;
-
-        }
+function saveCurrentChat(
+    firstMessage
+) {
 
 
-        const confirmed =
-            confirm(
-                "Clear this conversation?"
+    const title =
+        firstMessage.length > 35
+
+            ? firstMessage.substring(
+                0,
+                35
+            ) + "..."
+
+            : firstMessage;
+
+
+    const chat = {
+
+        title: title,
+
+        messages:
+            [...messages],
+
+        timestamp:
+            Date.now()
+
+    };
+
+
+    chatHistory.unshift(
+        chat
+    );
+
+
+    /* Keep last 20 chats */
+
+    chatHistory =
+        chatHistory.slice(
+            0,
+            20
+        );
+
+
+    localStorage.setItem(
+
+        "volby_chat_history",
+
+        JSON.stringify(
+            chatHistory
+        )
+
+    );
+
+
+    renderHistory();
+
+}
+
+
+/* ========================================= */
+/* RENDER HISTORY */
+/* ========================================= */
+
+function renderHistory() {
+
+
+    historyList.innerHTML =
+        "";
+
+
+    if (
+        chatHistory.length === 0
+    ) {
+
+        emptyHistory.style.display =
+            "block";
+
+        return;
+
+    }
+
+
+    emptyHistory.style.display =
+        "none";
+
+
+    chatHistory.forEach(
+        (chat, index) => {
+
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+
+            button.className =
+                "history-item";
+
+
+            button.innerHTML = `
+
+                <span class="history-icon">
+                    💬
+                </span>
+
+                <span class="history-title">
+                    ${escapeHTML(
+                        chat.title
+                    )}
+                </span>
+
+            `;
+
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    loadChat(
+                        index
+                    );
+
+                }
             );
 
 
+            historyList.appendChild(
+                button
+            );
+
+        }
+    );
+
+}
+
+
+/* ========================================= */
+/* LOAD CHAT */
+/* ========================================= */
+
+function loadChat(
+    index
+) {
+
+
+    const chat =
+        chatHistory[index];
+
+
+    if (!chat) {
+
+        return;
+
+    }
+
+
+    messages =
+        [...chat.messages];
+
+
+    messagesContainer
+        .innerHTML = "";
+
+
+    welcomeScreen.style.display =
+        "none";
+
+
+    messages.forEach(
+        message => {
+
+            addMessage(
+
+                message.content,
+
+                message.role
+
+            );
+
+        }
+    );
+
+
+    closeSidebarMenu();
+
+
+    scrollToBottom();
+
+}
+
+
+/* ========================================= */
+/* ESCAPE HTML */
+/* ========================================= */
+
+function escapeHTML(
+    text
+) {
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+
+    div.textContent =
+        text;
+
+
+    return div.innerHTML;
+
+}
+
+
+/* ========================================= */
+/* ABOUT MODAL */
+/* ========================================= */
+
+aboutButton.addEventListener(
+    "click",
+    () => {
+
+        aboutModal.classList.remove(
+            "hidden"
+        );
+
+    }
+);
+
+
+closeAbout.addEventListener(
+    "click",
+    () => {
+
+        aboutModal.classList.add(
+            "hidden"
+        );
+
+    }
+);
+
+
+aboutModal.addEventListener(
+    "click",
+    event => {
+
         if (
-            confirmed
+            event.target ===
+            aboutModal
         ) {
 
-            startNewChat();
+            aboutModal.classList.add(
+                "hidden"
+            );
 
         }
 
@@ -862,10 +965,10 @@ clearChatButton.addEventListener(
 );
 
 
-// ==========================================
-// INITIALIZE
-// ==========================================
+/* ========================================= */
+/* INITIALIZE */
+/* ========================================= */
 
-updateWelcomeScreen();
+renderHistory();
 
-input.focus();
+updateCharacterCount();
