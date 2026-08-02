@@ -1,5 +1,5 @@
 /* ========================================= */
-/* VOLBY AI - FRONTEND */
+/* VOLBY AI - FRONTEND + SUPABASE AUTH */
 /* ========================================= */
 
 
@@ -9,6 +9,34 @@
 
 const BACKEND_URL =
     "https://volby-ai-backend.onrender.com/chat";
+
+
+/* ========================================= */
+/* SUPABASE */
+/* ========================================= */
+
+/*
+    Use the values from:
+    Supabase → Connect → Framework → Next.js
+
+    The publishable key is safe to use
+    in frontend code.
+
+    NEVER put your secret key here.
+*/
+
+const SUPABASE_URL =
+    "https://eyxhphclrpmtmikgwmnx.supabase.co";
+
+const SUPABASE_PUBLISHABLE_KEY =
+    "sb_publishable_T5x5nYsNFTznpBdotgxfTQ_x0ITpd38";
+
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_PUBLISHABLE_KEY
+    );
 
 
 /* ========================================= */
@@ -76,35 +104,77 @@ const suggestions =
 
 let messages = [];
 
-let chatHistory = [];
+let currentUser = null;
 
-try {
 
-    chatHistory =
-        JSON.parse(
-            localStorage.getItem(
-                "volby_chat_history"
-            )
-        ) || [];
+/* ========================================= */
+/* SAFE LOCAL STORAGE */
+/* ========================================= */
 
-} catch (error) {
-
-    console.error(
-        "Volby: failed to load chat history, resetting.",
-        error
-    );
-
-    chatHistory = [];
+function getChatHistory() {
 
     try {
 
-        localStorage.removeItem(
-            "volby_chat_history"
+        const saved =
+            localStorage.getItem(
+                "volby_chat_history"
+            );
+
+        if (!saved) {
+
+            return [];
+
+        }
+
+        const parsed =
+            JSON.parse(saved);
+
+        return Array.isArray(parsed)
+            ? parsed
+            : [];
+
+    } catch (error) {
+
+        console.error(
+            "Could not load chat history:",
+            error
         );
 
-    } catch (storageError) {
+        return [];
 
-        /* localStorage unavailable - ignore */
+    }
+
+}
+
+
+let chatHistory =
+    getChatHistory();
+
+
+/* ========================================= */
+/* SAFE SAVE HISTORY */
+/* ========================================= */
+
+function saveChatHistoryToStorage() {
+
+    try {
+
+        localStorage.setItem(
+
+            "volby_chat_history",
+
+            JSON.stringify(
+                chatHistory
+            )
+
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Could not save chat history:",
+            error
+        );
 
     }
 
@@ -115,26 +185,32 @@ try {
 /* THEME */
 /* ========================================= */
 
-let savedTheme = "midnight";
+function getSavedTheme() {
 
-try {
+    try {
 
-    savedTheme =
-        localStorage.getItem(
-            "volby_theme"
-        ) || "midnight";
+        return (
+            localStorage.getItem(
+                "volby_theme"
+            ) || "midnight"
+        );
 
-} catch (error) {
+    } catch (error) {
 
-    console.error(
-        "Volby: localStorage unavailable, using default theme.",
-        error
-    );
+        return "midnight";
+
+    }
 
 }
 
 
-setTheme(savedTheme);
+const savedTheme =
+    getSavedTheme();
+
+
+setTheme(
+    savedTheme
+);
 
 
 function setTheme(theme) {
@@ -151,7 +227,10 @@ function setTheme(theme) {
 
     } catch (error) {
 
-        /* localStorage unavailable - ignore, theme still applies visually */
+        console.error(
+            "Could not save theme:",
+            error
+        );
 
     }
 
@@ -160,8 +239,12 @@ function setTheme(theme) {
         button => {
 
             button.classList.toggle(
+
                 "active",
-                button.dataset.theme === theme
+
+                button.dataset.theme ===
+                    theme
+
             );
 
         }
@@ -188,6 +271,571 @@ themeButtons.forEach(
 
     }
 );
+
+
+/* ========================================= */
+/* AUTH UI */
+/* ========================================= */
+
+function createAuthScreen() {
+
+    /*
+        Do not create another auth screen
+        if one already exists.
+    */
+
+    if (
+        document.getElementById(
+            "volby-auth-screen"
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    const authScreen =
+        document.createElement(
+            "div"
+        );
+
+
+    authScreen.id =
+        "volby-auth-screen";
+
+
+    authScreen.innerHTML = `
+
+        <div class="auth-box">
+
+            <div class="auth-logo">
+                <img
+                    src="volby-logo.png"
+                    alt="Volby AI Logo"
+                >
+            </div>
+
+            <h2>
+                Welcome to Volby AI
+            </h2>
+
+            <p class="auth-subtitle">
+                Sign in to continue chatting with Volby.
+            </p>
+
+
+            <div
+                id="auth-error"
+                class="auth-error"
+            ></div>
+
+
+            <input
+                id="auth-email"
+                type="email"
+                placeholder="Email"
+                autocomplete="email"
+            >
+
+
+            <input
+                id="auth-password"
+                type="password"
+                placeholder="Password"
+                autocomplete="current-password"
+            >
+
+
+            <button
+                id="auth-submit"
+                class="auth-submit"
+            >
+                Log In
+            </button>
+
+
+            <button
+                id="auth-toggle"
+                class="auth-toggle"
+            >
+                Don't have an account? Sign Up
+            </button>
+
+
+            <p class="auth-note">
+                You will stay logged in until you log out.
+            </p>
+
+        </div>
+
+    `;
+
+
+    document.body.appendChild(
+        authScreen
+    );
+
+
+    const emailInput =
+        document.getElementById(
+            "auth-email"
+        );
+
+
+    const passwordInput =
+        document.getElementById(
+            "auth-password"
+        );
+
+
+    const submitButton =
+        document.getElementById(
+            "auth-submit"
+        );
+
+
+    const toggleButton =
+        document.getElementById(
+            "auth-toggle"
+        );
+
+
+    const errorElement =
+        document.getElementById(
+            "auth-error"
+        );
+
+
+    let isSignup =
+        false;
+
+
+    toggleButton.addEventListener(
+        "click",
+        () => {
+
+            isSignup =
+                !isSignup;
+
+
+            if (isSignup) {
+
+                submitButton.textContent =
+                    "Sign Up";
+
+
+                toggleButton.textContent =
+                    "Already have an account? Log In";
+
+            } else {
+
+                submitButton.textContent =
+                    "Log In";
+
+
+                toggleButton.textContent =
+                    "Don't have an account? Sign Up";
+
+            }
+
+        }
+    );
+
+
+    submitButton.addEventListener(
+        "click",
+        async () => {
+
+            const email =
+                emailInput.value.trim();
+
+
+            const password =
+                passwordInput.value;
+
+
+            errorElement.textContent =
+                "";
+
+
+            if (
+                !email ||
+                !password
+            ) {
+
+                errorElement.textContent =
+                    "Please enter your email and password.";
+
+                return;
+
+            }
+
+
+            if (
+                password.length < 6
+            ) {
+
+                errorElement.textContent =
+                    "Password must be at least 6 characters.";
+
+                return;
+
+            }
+
+
+            submitButton.disabled =
+                true;
+
+
+            submitButton.textContent =
+                isSignup
+                    ? "Creating account..."
+                    : "Logging in...";
+
+
+            try {
+
+                let result;
+
+
+                if (isSignup) {
+
+                    result =
+                        await supabaseClient.auth
+                            .signUp({
+
+                                email:
+                                    email,
+
+                                password:
+                                    password
+
+                            });
+
+                } else {
+
+                    result =
+                        await supabaseClient.auth
+                            .signInWithPassword({
+
+                                email:
+                                    email,
+
+                                password:
+                                    password
+
+                            });
+
+                }
+
+
+                if (
+                    result.error
+                ) {
+
+                    throw result.error;
+
+                }
+
+
+                /*
+                    If email confirmation is enabled
+                    in Supabase, the user may need
+                    to confirm their email first.
+                */
+
+                if (
+                    isSignup &&
+                    result.data.user &&
+                    !result.data.session
+                ) {
+
+                    errorElement.textContent =
+                        "Account created. Please check your email to confirm your account.";
+
+                    submitButton.disabled =
+                        false;
+
+                    submitButton.textContent =
+                        "Sign Up";
+
+                    return;
+
+                }
+
+
+                currentUser =
+                    result.data.user;
+
+
+                authScreen.remove();
+
+
+                showAuthenticatedUI();
+
+
+            } catch (error) {
+
+                console.error(
+                    "Authentication error:",
+                    error
+                );
+
+
+                errorElement.textContent =
+                    error.message ||
+                    "Authentication failed.";
+
+            }
+
+
+            submitButton.disabled =
+                false;
+
+
+            submitButton.textContent =
+                isSignup
+                    ? "Sign Up"
+                    : "Log In";
+
+        }
+    );
+
+}
+
+
+/* ========================================= */
+/* AUTHENTICATED UI */
+/* ========================================= */
+
+function showAuthenticatedUI() {
+
+    /*
+        Make the main app visible.
+    */
+
+    document.body.classList.add(
+        "authenticated"
+    );
+
+
+    /*
+        Add logout button.
+    */
+
+    addLogoutButton();
+
+}
+
+
+/* ========================================= */
+/* LOGOUT BUTTON */
+/* ========================================= */
+
+function addLogoutButton() {
+
+    if (
+        document.getElementById(
+            "volby-logout-button"
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    const logoutButton =
+        document.createElement(
+            "button"
+        );
+
+
+    logoutButton.id =
+        "volby-logout-button";
+
+
+    logoutButton.className =
+        "about-button";
+
+
+    logoutButton.innerHTML =
+        "↪ Log Out";
+
+
+    logoutButton.addEventListener(
+        "click",
+        async () => {
+
+            const confirmed =
+                confirm(
+                    "Are you sure you want to log out?"
+                );
+
+
+            if (!confirmed) {
+
+                return;
+
+            }
+
+
+            const {
+                error
+            } =
+                await supabaseClient.auth
+                    .signOut();
+
+
+            if (
+                error
+            ) {
+
+                console.error(
+                    "Logout error:",
+                    error
+                );
+
+                alert(
+                    "Could not log out. Please try again."
+                );
+
+                return;
+
+            }
+
+
+            currentUser =
+                null;
+
+
+            logoutButton.remove();
+
+
+            createAuthScreen();
+
+        }
+    );
+
+
+    const sidebarBottom =
+        document.querySelector(
+            ".sidebar-bottom"
+        );
+
+
+    if (
+        sidebarBottom
+    ) {
+
+        sidebarBottom.appendChild(
+            logoutButton
+        );
+
+    }
+
+}
+
+
+/* ========================================= */
+/* CHECK AUTH SESSION */
+/* ========================================= */
+
+async function initializeAuthentication() {
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await supabaseClient.auth
+                .getSession();
+
+
+        if (
+            error
+        ) {
+
+            throw error;
+
+        }
+
+
+        if (
+            data.session &&
+            data.session.user
+        ) {
+
+            /*
+                User is already logged in.
+
+                Supabase automatically restores
+                the session after page refresh.
+            */
+
+            currentUser =
+                data.session.user;
+
+
+            showAuthenticatedUI();
+
+        } else {
+
+            /*
+                No active session.
+                Show login/signup.
+            */
+
+            createAuthScreen();
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Session error:",
+            error
+        );
+
+
+        createAuthScreen();
+
+    }
+
+
+    /*
+        Listen for future authentication changes.
+    */
+
+    supabaseClient.auth
+        .onAuthStateChange(
+            (
+                event,
+                session
+            ) => {
+
+                if (
+                    session &&
+                    session.user
+                ) {
+
+                    currentUser =
+                        session.user;
+
+                } else {
+
+                    currentUser =
+                        null;
+
+                }
+
+            }
+        );
+
+}
 
 
 /* ========================================= */
@@ -248,24 +896,33 @@ newChatButton.addEventListener(
 
         messages = [];
 
+
         messagesContainer
             .innerHTML = "";
+
 
         messagesContainer
             .appendChild(
                 welcomeScreen
             );
 
+
         welcomeScreen.style.display =
             "";
 
-        input.value = "";
+
+        input.value =
+            "";
+
 
         updateCharacterCount();
 
+
         autoResize();
 
+
         closeSidebarMenu();
+
 
         input.focus();
 
@@ -306,6 +963,7 @@ function autoResize() {
     input.style.height =
         "auto";
 
+
     input.style.height =
         Math.min(
             input.scrollHeight,
@@ -316,37 +974,16 @@ function autoResize() {
 
 
 /* ========================================= */
-/* MARKDOWN / RESPONSE FORMATTER */
+/* MARKDOWN FORMATTER */
 /* ========================================= */
 
-/*
-    This function formats AI responses.
-
-    Supported:
-
-    **bold text**
-
-    # Headings
-
-    - Bullet lists
-
-    ```python
-    code
-    ```
-
-    Code blocks get their own Copy button.
-*/
-
-function formatAIResponse(content) {
+function formatAIResponse(
+    content
+) {
 
     const fragment =
         document.createDocumentFragment();
 
-
-    /*
-        Split response into normal text
-        and fenced code blocks.
-    */
 
     const parts =
         content.split(
@@ -358,8 +995,12 @@ function formatAIResponse(content) {
         part => {
 
             if (
-                part.startsWith("```") &&
-                part.endsWith("```")
+                part.startsWith(
+                    "```"
+                ) &&
+                part.endsWith(
+                    "```"
+                )
             ) {
 
                 createCodeBlock(
@@ -405,10 +1046,13 @@ function createTextContent(
 
 
     const lines =
-        text.split("\n");
+        text.split(
+            "\n"
+        );
 
 
-    let currentList = null;
+    let currentList =
+        null;
 
 
     lines.forEach(
@@ -418,21 +1062,26 @@ function createTextContent(
                 line.trim();
 
 
-            /*
-                Bullet list
-            */
-
             if (
-                trimmed.startsWith("- ") ||
-                trimmed.startsWith("* ")
+                trimmed.startsWith(
+                    "- "
+                ) ||
+                trimmed.startsWith(
+                    "* "
+                )
             ) {
 
-                if (!currentList) {
+                if (
+                    !currentList ||
+                    currentList.tagName !==
+                        "UL"
+                ) {
 
                     currentList =
                         document.createElement(
                             "ul"
                         );
+
 
                     container.appendChild(
                         currentList
@@ -449,7 +1098,9 @@ function createTextContent(
 
                 li.appendChild(
                     formatInlineMarkdown(
-                        trimmed.substring(2)
+                        trimmed.substring(
+                            2
+                        )
                     )
                 );
 
@@ -464,28 +1115,27 @@ function createTextContent(
             }
 
 
-            /*
-                Numbered list
-            */
-
             const numbered =
                 trimmed.match(
                     /^\d+\.\s+(.*)/
                 );
 
 
-            if (numbered) {
+            if (
+                numbered
+            ) {
 
                 if (
                     !currentList ||
                     currentList.tagName !==
-                    "OL"
+                        "OL"
                 ) {
 
                     currentList =
                         document.createElement(
                             "ol"
                         );
+
 
                     container.appendChild(
                         currentList
@@ -517,20 +1167,14 @@ function createTextContent(
             }
 
 
-            /*
-                Reset list
-            */
-
             currentList =
                 null;
 
 
-            /*
-                Heading
-            */
-
             if (
-                trimmed.startsWith("# ")
+                trimmed.startsWith(
+                    "# "
+                )
             ) {
 
                 const heading =
@@ -541,24 +1185,19 @@ function createTextContent(
 
                 heading.appendChild(
                     formatInlineMarkdown(
-                        trimmed.substring(2)
-                    )
-                );
-
-
+                        trimmed.substring(
+                            2
+                        )
                 container.appendChild(
                     heading
                 );
-
 
                 return;
 
             }
 
 
-            /*
-                Empty line
-            */
+            /* Empty line */
 
             if (
                 trimmed === ""
@@ -576,28 +1215,23 @@ function createTextContent(
                     spacer
                 );
 
-
                 return;
 
             }
 
 
-            /*
-                Normal paragraph
-            */
+            /* Normal paragraph */
 
             const paragraph =
                 document.createElement(
                     "p"
                 );
 
-
             paragraph.appendChild(
                 formatInlineMarkdown(
                     line
                 )
             );
-
 
             container.appendChild(
                 paragraph
@@ -621,10 +1255,6 @@ function formatInlineMarkdown(
         document.createDocumentFragment();
 
 
-    /*
-        Split **bold** text
-    */
-
     const parts =
         text.split(
             /(\*\*.*?\*\*)/g
@@ -635,8 +1265,12 @@ function formatInlineMarkdown(
         part => {
 
             if (
-                part.startsWith("**") &&
-                part.endsWith("**")
+                part.startsWith(
+                    "**"
+                ) &&
+                part.endsWith(
+                    "**"
+                )
             ) {
 
                 const bold =
@@ -644,13 +1278,11 @@ function formatInlineMarkdown(
                         "strong"
                     );
 
-
                 bold.textContent =
                     part.substring(
                         2,
                         part.length - 2
                     );
-
 
                 fragment.appendChild(
                     bold
@@ -684,10 +1316,6 @@ function createCodeBlock(
     container
 ) {
 
-    /*
-        Remove ``` markers
-    */
-
     let code =
         codePart
             .replace(
@@ -704,16 +1332,10 @@ function createCodeBlock(
         "Code";
 
 
-    /*
-        Detect language
-
-        ```python
-        ```javascript
-        ```html
-        */
-
     const firstNewLine =
-        code.indexOf("\n");
+        code.indexOf(
+            "\n"
+        );
 
 
     if (
@@ -730,15 +1352,13 @@ function createCodeBlock(
 
 
         if (
-            /^[a-zA-Z0-9+#.-]+$/
-                .test(
-                    possibleLanguage
-                )
+            /^[a-zA-Z0-9+#.-]+$/.test(
+                possibleLanguage
+            )
         ) {
 
             language =
                 possibleLanguage;
-
 
             code =
                 code.substring(
@@ -754,65 +1374,51 @@ function createCodeBlock(
         code.trim();
 
 
-    /*
-        Code wrapper
-    */
+    /* Code wrapper */
 
     const wrapper =
         document.createElement(
             "div"
         );
 
-
     wrapper.className =
         "code-block";
 
 
-    /*
-        Header
-    */
+    /* Code header */
 
     const header =
         document.createElement(
             "div"
         );
 
-
     header.className =
         "code-header";
 
 
-    /*
-        Language
-    */
+    /* Language label */
 
     const languageLabel =
         document.createElement(
             "span"
         );
 
-
     languageLabel.className =
         "code-language";
-
 
     languageLabel.textContent =
         language;
 
 
-    /*
-        Copy button
-    */
+    /* Copy button */
 
     const copyButton =
         document.createElement(
             "button"
         );
 
-
     copyButton.className =
         "code-copy-button";
-
 
     copyButton.textContent =
         "Copy";
@@ -824,11 +1430,9 @@ function createCodeBlock(
 
             try {
 
-                await navigator.clipboard
-                    .writeText(
-                        code
-                    );
-
+                await navigator.clipboard.writeText(
+                    code
+                );
 
                 copyButton.textContent =
                     "Copied!";
@@ -843,7 +1447,6 @@ function createCodeBlock(
                     },
                     1500
                 );
-
 
             } catch (error) {
 
@@ -862,27 +1465,22 @@ function createCodeBlock(
         languageLabel
     );
 
-
     header.appendChild(
         copyButton
     );
 
 
-    /*
-        Code element
-    */
+    /* Code element */
 
     const pre =
         document.createElement(
             "pre"
         );
 
-
     const codeElement =
         document.createElement(
             "code"
         );
-
 
     codeElement.textContent =
         code;
@@ -896,7 +1494,6 @@ function createCodeBlock(
     wrapper.appendChild(
         header
     );
-
 
     wrapper.appendChild(
         pre
@@ -928,7 +1525,6 @@ function addMessage(
             "div"
         );
 
-
     row.className =
         "message-row " +
         role;
@@ -939,17 +1535,10 @@ function addMessage(
             "div"
         );
 
-
     message.className =
         "message " +
         role;
 
-
-    /*
-        User messages remain plain text.
-
-        AI messages get formatting.
-    */
 
     if (
         role === "ai"
@@ -1002,7 +1591,6 @@ function addThinkingMessage() {
             "div"
         );
 
-
     row.className =
         "message-row ai";
 
@@ -1011,7 +1599,6 @@ function addThinkingMessage() {
         document.createElement(
             "div"
         );
-
 
     message.className =
         "message ai";
@@ -1062,7 +1649,6 @@ function addResponseCopyButton(
             "div"
         );
 
-
     actions.className =
         "message-actions";
 
@@ -1072,10 +1658,8 @@ function addResponseCopyButton(
             "button"
         );
 
-
     copyButton.className =
         "copy-button";
-
 
     copyButton.textContent =
         "Copy";
@@ -1087,18 +1671,9 @@ function addResponseCopyButton(
 
             try {
 
-                /*
-                    IMPORTANT:
-
-                    This copies ONLY the AI response.
-
-                    The user's question is NOT included.
-                */
-
-                await navigator.clipboard
-                    .writeText(
-                        answer
-                    );
+                await navigator.clipboard.writeText(
+                    answer
+                );
 
 
                 copyButton.textContent =
@@ -1114,7 +1689,6 @@ function addResponseCopyButton(
                     },
                     1500
                 );
-
 
             } catch (error) {
 
@@ -1147,7 +1721,6 @@ function addResponseCopyButton(
 
 async function sendMessage() {
 
-
     const text =
         input.value.trim();
 
@@ -1166,9 +1739,11 @@ async function sendMessage() {
 
     messages.push({
 
-        role: "user",
+        role:
+            "user",
 
-        content: text
+        content:
+            text
 
     });
 
@@ -1181,7 +1756,8 @@ async function sendMessage() {
 
     /* Clear input */
 
-    input.value = "";
+    input.value =
+        "";
 
     updateCharacterCount();
 
@@ -1194,7 +1770,7 @@ async function sendMessage() {
         true;
 
 
-    /* Thinking */
+    /* Show thinking */
 
     const thinking =
         addThinkingMessage();
@@ -1202,15 +1778,13 @@ async function sendMessage() {
 
     try {
 
-
-        /* Send conversation */
-
         const response =
             await fetch(
                 BACKEND_URL,
                 {
 
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
 
@@ -1257,13 +1831,15 @@ async function sendMessage() {
         thinking.remove();
 
 
-        /* Add AI response */
+        /* Save AI response */
 
         messages.push({
 
-            role: "assistant",
+            role:
+                "assistant",
 
-            content: answer
+            content:
+                answer
 
         });
 
@@ -1277,11 +1853,7 @@ async function sendMessage() {
             );
 
 
-        /*
-            Add main Copy button.
-
-            This copies only the AI answer.
-        */
+        /* Add copy button */
 
         addResponseCopyButton(
             aiMessage,
@@ -1297,7 +1869,6 @@ async function sendMessage() {
 
 
     } catch (error) {
-
 
         console.error(
             "Volby Error:",
@@ -1330,7 +1901,6 @@ async function sendMessage() {
 
     input.focus();
 
-
 }
 
 
@@ -1359,7 +1929,7 @@ input.addEventListener(
 
             event.preventDefault();
 
-              sendMessage();
+            sendMessage();
 
         }
 
@@ -1405,6 +1975,7 @@ function scrollToBottom() {
             "chat"
         );
 
+
     setTimeout(
         () => {
 
@@ -1436,9 +2007,11 @@ function saveCurrentChat(
 
             : firstMessage;
 
+
     const chat = {
 
-        title: title,
+        title:
+            title,
 
         messages:
             [...messages],
@@ -1448,9 +2021,13 @@ function saveCurrentChat(
 
     };
 
+
     chatHistory.unshift(
         chat
     );
+
+
+    /* Keep last 20 chats */
 
     chatHistory =
         chatHistory.slice(
@@ -1458,23 +2035,9 @@ function saveCurrentChat(
             20
         );
 
-    try {
 
-        localStorage.setItem(
-            "volby_chat_history",
-            JSON.stringify(
-                chatHistory
-            )
-        );
+    saveChatHistoryToStorage();
 
-    } catch (error) {
-
-        console.error(
-            "Volby: failed to save chat history.",
-            error
-        );
-
-    }
 
     renderHistory();
 
@@ -1490,6 +2053,7 @@ function renderHistory() {
     historyList.innerHTML =
         "";
 
+
     if (
         chatHistory.length === 0
     ) {
@@ -1501,19 +2065,26 @@ function renderHistory() {
 
     }
 
+
     emptyHistory.style.display =
         "none";
 
+
     chatHistory.forEach(
-        (chat, index) => {
+        (
+            chat,
+            index
+        ) => {
 
             const button =
                 document.createElement(
                     "button"
                 );
 
+
             button.className =
                 "history-item";
+
 
             button.innerHTML = `
 
@@ -1529,6 +2100,7 @@ function renderHistory() {
 
             `;
 
+
             button.addEventListener(
                 "click",
                 () => {
@@ -1539,6 +2111,7 @@ function renderHistory() {
 
                 }
             );
+
 
             historyList.appendChild(
                 button
@@ -1561,47 +2134,46 @@ function loadChat(
     const chat =
         chatHistory[index];
 
+
     if (!chat) {
 
         return;
 
     }
 
+
     messages =
         [...chat.messages];
 
-    messagesContainer
-        .innerHTML = "";
+
+    messagesContainer.innerHTML =
+        "";
+
 
     welcomeScreen.style.display =
         "none";
 
+
     messages.forEach(
         message => {
 
-            const messageElement =
-                addMessage(
-                    message.content,
-                    message.role === "assistant"
-                        ? "ai"
-                        : message.role
-                );
+            addMessage(
 
-            if (
-                message.role === "assistant"
-            ) {
+                message.content,
 
-                addResponseCopyButton(
-                    messageElement,
-                    message.content
-                );
+                message.role ===
+                    "assistant"
+                    ? "ai"
+                    : "user"
 
-            }
+            );
 
         }
     );
 
+
     closeSidebarMenu();
+
 
     scrollToBottom();
 
@@ -1621,8 +2193,10 @@ function escapeHTML(
             "div"
         );
 
+
     div.textContent =
         text;
+
 
     return div.innerHTML;
 
@@ -1684,4 +2258,4 @@ renderHistory();
 
 updateCharacterCount();
 
-autoResize();
+initializeAuthentication();
