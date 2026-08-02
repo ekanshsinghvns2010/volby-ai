@@ -208,9 +208,14 @@ newChatButton.addEventListener(
                 welcomeScreen
             );
 
+        welcomeScreen.style.display =
+            "";
+
         input.value = "";
 
         updateCharacterCount();
+
+        autoResize();
 
         closeSidebarMenu();
 
@@ -263,6 +268,601 @@ function autoResize() {
 
 
 /* ========================================= */
+/* MARKDOWN / RESPONSE FORMATTER */
+/* ========================================= */
+
+/*
+    This function formats AI responses.
+
+    Supported:
+
+    **bold text**
+
+    # Headings
+
+    - Bullet lists
+
+    ```python
+    code
+    ```
+
+    Code blocks get their own Copy button.
+*/
+
+function formatAIResponse(content) {
+
+    const fragment =
+        document.createDocumentFragment();
+
+
+    /*
+        Split response into normal text
+        and fenced code blocks.
+    */
+
+    const parts =
+        content.split(
+            /(```[\s\S]*?```)/g
+        );
+
+
+    parts.forEach(
+        part => {
+
+            if (
+                part.startsWith("```") &&
+                part.endsWith("```")
+            ) {
+
+                createCodeBlock(
+                    part,
+                    fragment
+                );
+
+            } else {
+
+                createTextContent(
+                    part,
+                    fragment
+                );
+
+            }
+
+        }
+    );
+
+
+    return fragment;
+
+}
+
+
+/* ========================================= */
+/* CREATE NORMAL TEXT */
+/* ========================================= */
+
+function createTextContent(
+    text,
+    container
+) {
+
+    if (
+        !text ||
+        text.trim() === ""
+    ) {
+
+        return;
+
+    }
+
+
+    const lines =
+        text.split("\n");
+
+
+    let currentList = null;
+
+
+    lines.forEach(
+        line => {
+
+            const trimmed =
+                line.trim();
+
+
+            /*
+                Bullet list
+            */
+
+            if (
+                trimmed.startsWith("- ") ||
+                trimmed.startsWith("* ")
+            ) {
+
+                if (!currentList) {
+
+                    currentList =
+                        document.createElement(
+                            "ul"
+                        );
+
+                    container.appendChild(
+                        currentList
+                    );
+
+                }
+
+
+                const li =
+                    document.createElement(
+                        "li"
+                    );
+
+
+                li.appendChild(
+                    formatInlineMarkdown(
+                        trimmed.substring(2)
+                    )
+                );
+
+
+                currentList.appendChild(
+                    li
+                );
+
+
+                return;
+
+            }
+
+
+            /*
+                Numbered list
+            */
+
+            const numbered =
+                trimmed.match(
+                    /^\d+\.\s+(.*)/
+                );
+
+
+            if (numbered) {
+
+                if (
+                    !currentList ||
+                    currentList.tagName !==
+                    "OL"
+                ) {
+
+                    currentList =
+                        document.createElement(
+                            "ol"
+                        );
+
+                    container.appendChild(
+                        currentList
+                    );
+
+                }
+
+
+                const li =
+                    document.createElement(
+                        "li"
+                    );
+
+
+                li.appendChild(
+                    formatInlineMarkdown(
+                        numbered[1]
+                    )
+                );
+
+
+                currentList.appendChild(
+                    li
+                );
+
+
+                return;
+
+            }
+
+
+            /*
+                Reset list
+            */
+
+            currentList =
+                null;
+
+
+            /*
+                Heading
+            */
+
+            if (
+                trimmed.startsWith("# ")
+            ) {
+
+                const heading =
+                    document.createElement(
+                        "h3"
+                    );
+
+
+                heading.appendChild(
+                    formatInlineMarkdown(
+                        trimmed.substring(2)
+                    )
+                );
+
+
+                container.appendChild(
+                    heading
+                );
+
+
+                return;
+
+            }
+
+
+            /*
+                Empty line
+            */
+
+            if (
+                trimmed === ""
+            ) {
+
+                const spacer =
+                    document.createElement(
+                        "div"
+                    );
+
+                spacer.className =
+                    "text-spacer";
+
+                container.appendChild(
+                    spacer
+                );
+
+
+                return;
+
+            }
+
+
+            /*
+                Normal paragraph
+            */
+
+            const paragraph =
+                document.createElement(
+                    "p"
+                );
+
+
+            paragraph.appendChild(
+                formatInlineMarkdown(
+                    line
+                )
+            );
+
+
+            container.appendChild(
+                paragraph
+            );
+
+        }
+    );
+
+}
+
+
+/* ========================================= */
+/* INLINE MARKDOWN */
+/* ========================================= */
+
+function formatInlineMarkdown(
+    text
+) {
+
+    const fragment =
+        document.createDocumentFragment();
+
+
+    /*
+        Split **bold** text
+    */
+
+    const parts =
+        text.split(
+            /(\*\*.*?\*\*)/g
+        );
+
+
+    parts.forEach(
+        part => {
+
+            if (
+                part.startsWith("**") &&
+                part.endsWith("**")
+            ) {
+
+                const bold =
+                    document.createElement(
+                        "strong"
+                    );
+
+
+                bold.textContent =
+                    part.substring(
+                        2,
+                        part.length - 2
+                    );
+
+
+                fragment.appendChild(
+                    bold
+                );
+
+            } else {
+
+                fragment.appendChild(
+                    document.createTextNode(
+                        part
+                    )
+                );
+
+            }
+
+        }
+    );
+
+
+    return fragment;
+
+}
+
+
+/* ========================================= */
+/* CREATE CODE BLOCK */
+/* ========================================= */
+
+function createCodeBlock(
+    codePart,
+    container
+) {
+
+    /*
+        Remove ``` markers
+    */
+
+    let code =
+        codePart
+            .replace(
+                /^```/,
+                ""
+            )
+            .replace(
+                /```$/,
+                ""
+            );
+
+
+    let language =
+        "Code";
+
+
+    /*
+        Detect language
+
+        ```python
+        ```javascript
+        ```html
+        */
+
+    const firstNewLine =
+        code.indexOf("\n");
+
+
+    if (
+        firstNewLine !== -1
+    ) {
+
+        const possibleLanguage =
+            code
+                .substring(
+                    0,
+                    firstNewLine
+                )
+                .trim();
+
+
+        if (
+            /^[a-zA-Z0-9+#.-]+$/
+                .test(
+                    possibleLanguage
+                )
+        ) {
+
+            language =
+                possibleLanguage;
+
+
+            code =
+                code.substring(
+                    firstNewLine + 1
+                );
+
+        }
+
+    }
+
+
+    code =
+        code.trim();
+
+
+    /*
+        Code wrapper
+    */
+
+    const wrapper =
+        document.createElement(
+            "div"
+        );
+
+
+    wrapper.className =
+        "code-block";
+
+
+    /*
+        Header
+    */
+
+    const header =
+        document.createElement(
+            "div"
+        );
+
+
+    header.className =
+        "code-header";
+
+
+    /*
+        Language
+    */
+
+    const languageLabel =
+        document.createElement(
+            "span"
+        );
+
+
+    languageLabel.className =
+        "code-language";
+
+
+    languageLabel.textContent =
+        language;
+
+
+    /*
+        Copy button
+    */
+
+    const copyButton =
+        document.createElement(
+            "button"
+        );
+
+
+    copyButton.className =
+        "code-copy-button";
+
+
+    copyButton.textContent =
+        "Copy";
+
+
+    copyButton.addEventListener(
+        "click",
+        async () => {
+
+            try {
+
+                await navigator.clipboard
+                    .writeText(
+                        code
+                    );
+
+
+                copyButton.textContent =
+                    "Copied!";
+
+
+                setTimeout(
+                    () => {
+
+                        copyButton.textContent =
+                            "Copy";
+
+                    },
+                    1500
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Copy failed:",
+                    error
+                );
+
+            }
+
+        }
+    );
+
+
+    header.appendChild(
+        languageLabel
+    );
+
+
+    header.appendChild(
+        copyButton
+    );
+
+
+    /*
+        Code element
+    */
+
+    const pre =
+        document.createElement(
+            "pre"
+        );
+
+
+    const codeElement =
+        document.createElement(
+            "code"
+        );
+
+
+    codeElement.textContent =
+        code;
+
+
+    pre.appendChild(
+        codeElement
+    );
+
+
+    wrapper.appendChild(
+        header
+    );
+
+
+    wrapper.appendChild(
+        pre
+    );
+
+
+    container.appendChild(
+        wrapper
+    );
+
+}
+
+
+/* ========================================= */
 /* ADD MESSAGE */
 /* ========================================= */
 
@@ -280,6 +880,7 @@ function addMessage(
             "div"
         );
 
+
     row.className =
         "message-row " +
         role;
@@ -290,12 +891,34 @@ function addMessage(
             "div"
         );
 
+
     message.className =
         "message " +
         role;
 
-    message.textContent =
-        content;
+
+    /*
+        User messages remain plain text.
+
+        AI messages get formatting.
+    */
+
+    if (
+        role === "ai"
+    ) {
+
+        message.appendChild(
+            formatAIResponse(
+                content
+            )
+        );
+
+    } else {
+
+        message.textContent =
+            content;
+
+    }
 
 
     row.appendChild(
@@ -331,6 +954,7 @@ function addThinkingMessage() {
             "div"
         );
 
+
     row.className =
         "message-row ai";
 
@@ -339,6 +963,7 @@ function addThinkingMessage() {
         document.createElement(
             "div"
         );
+
 
     message.className =
         "message ai";
@@ -371,6 +996,99 @@ function addThinkingMessage() {
 
 
     return row;
+
+}
+
+
+/* ========================================= */
+/* ADD RESPONSE COPY BUTTON */
+/* ========================================= */
+
+function addResponseCopyButton(
+    message,
+    answer
+) {
+
+    const actions =
+        document.createElement(
+            "div"
+        );
+
+
+    actions.className =
+        "message-actions";
+
+
+    const copyButton =
+        document.createElement(
+            "button"
+        );
+
+
+    copyButton.className =
+        "copy-button";
+
+
+    copyButton.textContent =
+        "Copy";
+
+
+    copyButton.addEventListener(
+        "click",
+        async () => {
+
+            try {
+
+                /*
+                    IMPORTANT:
+
+                    This copies ONLY the AI response.
+
+                    The user's question is NOT included.
+                */
+
+                await navigator.clipboard
+                    .writeText(
+                        answer
+                    );
+
+
+                copyButton.textContent =
+                    "Copied!";
+
+
+                setTimeout(
+                    () => {
+
+                        copyButton.textContent =
+                            "Copy";
+
+                    },
+                    1500
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Copy failed:",
+                    error
+                );
+
+            }
+
+        }
+    );
+
+
+    actions.appendChild(
+        copyButton
+    );
+
+
+    message.appendChild(
+        actions
+    );
 
 }
 
@@ -502,6 +1220,8 @@ async function sendMessage() {
         });
 
 
+        /* Display AI response */
+
         const aiMessage =
             addMessage(
                 answer,
@@ -509,63 +1229,15 @@ async function sendMessage() {
             );
 
 
-        /* Add copy button */
+        /*
+            Add main Copy button.
 
-        const actions =
-            document.createElement(
-                "div"
-            );
+            This copies only the AI answer.
+        */
 
-        actions.className =
-            "message-actions";
-
-
-        const copyButton =
-            document.createElement(
-                "button"
-            );
-
-        copyButton.className =
-            "copy-button";
-
-        copyButton.textContent =
-            "Copy";
-
-
-        copyButton.addEventListener(
-            "click",
-            async () => {
-
-                await navigator.clipboard
-                    .writeText(
-                        answer
-                    );
-
-                copyButton.textContent =
-                    "Copied!";
-
-
-                setTimeout(
-                    () => {
-
-                        copyButton.textContent =
-                            "Copy";
-
-                    },
-                    1500
-                );
-
-            }
-        );
-
-
-        actions.appendChild(
-            copyButton
-        );
-
-
-        aiMessage.appendChild(
-            actions
+        addResponseCopyButton(
+            aiMessage,
+            answer
         );
 
 
@@ -597,7 +1269,7 @@ async function sendMessage() {
         );
 
 
-        /* Remove failed message */
+        /* Remove failed user message */
 
         messages.pop();
 
@@ -639,336 +1311,4 @@ input.addEventListener(
 
             event.preventDefault();
 
-            sendMessage();
-
-        }
-
-    }
-);
-
-
-/* ========================================= */
-/* SUGGESTIONS */
-/* ========================================= */
-
-suggestions.forEach(
-    suggestion => {
-
-        suggestion.addEventListener(
-            "click",
-            () => {
-
-                input.value =
-                    suggestion.dataset.prompt;
-
-                updateCharacterCount();
-
-                autoResize();
-
-                input.focus();
-
-            }
-        );
-
-    }
-);
-
-
-/* ========================================= */
-/* SCROLL */
-/* ========================================= */
-
-function scrollToBottom() {
-
-    const chat =
-        document.getElementById(
-            "chat"
-        );
-
-
-    setTimeout(
-        () => {
-
-            chat.scrollTop =
-                chat.scrollHeight;
-
-        },
-        50
-    );
-
-}
-
-
-/* ========================================= */
-/* CHAT HISTORY */
-/* ========================================= */
-
-function saveCurrentChat(
-    firstMessage
-) {
-
-
-    const title =
-        firstMessage.length > 35
-
-            ? firstMessage.substring(
-                0,
-                35
-            ) + "..."
-
-            : firstMessage;
-
-
-    const chat = {
-
-        title: title,
-
-        messages:
-            [...messages],
-
-        timestamp:
-            Date.now()
-
-    };
-
-
-    chatHistory.unshift(
-        chat
-    );
-
-
-    /* Keep last 20 chats */
-
-    chatHistory =
-        chatHistory.slice(
-            0,
-            20
-        );
-
-
-    localStorage.setItem(
-
-        "volby_chat_history",
-
-        JSON.stringify(
-            chatHistory
-        )
-
-    );
-
-
-    renderHistory();
-
-}
-
-
-/* ========================================= */
-/* RENDER HISTORY */
-/* ========================================= */
-
-function renderHistory() {
-
-
-    historyList.innerHTML =
-        "";
-
-
-    if (
-        chatHistory.length === 0
-    ) {
-
-        emptyHistory.style.display =
-            "block";
-
-        return;
-
-    }
-
-
-    emptyHistory.style.display =
-        "none";
-
-
-    chatHistory.forEach(
-        (chat, index) => {
-
-
-            const button =
-                document.createElement(
-                    "button"
-                );
-
-
-            button.className =
-                "history-item";
-
-
-            button.innerHTML = `
-
-                <span class="history-icon">
-                    💬
-                </span>
-
-                <span class="history-title">
-                    ${escapeHTML(
-                        chat.title
-                    )}
-                </span>
-
-            `;
-
-
-            button.addEventListener(
-                "click",
-                () => {
-
-                    loadChat(
-                        index
-                    );
-
-                }
-            );
-
-
-            historyList.appendChild(
-                button
-            );
-
-        }
-    );
-
-}
-
-
-/* ========================================= */
-/* LOAD CHAT */
-/* ========================================= */
-
-function loadChat(
-    index
-) {
-
-
-    const chat =
-        chatHistory[index];
-
-
-    if (!chat) {
-
-        return;
-
-    }
-
-
-    messages =
-        [...chat.messages];
-
-
-    messagesContainer
-        .innerHTML = "";
-
-
-    welcomeScreen.style.display =
-        "none";
-
-
-    messages.forEach(
-        message => {
-
-            addMessage(
-
-                message.content,
-
-                message.role
-
-            );
-
-        }
-    );
-
-
-    closeSidebarMenu();
-
-
-    scrollToBottom();
-
-}
-
-
-/* ========================================= */
-/* ESCAPE HTML */
-/* ========================================= */
-
-function escapeHTML(
-    text
-) {
-
-    const div =
-        document.createElement(
-            "div"
-        );
-
-
-    div.textContent =
-        text;
-
-
-    return div.innerHTML;
-
-}
-
-
-/* ========================================= */
-/* ABOUT MODAL */
-/* ========================================= */
-
-aboutButton.addEventListener(
-    "click",
-    () => {
-
-        aboutModal.classList.remove(
-            "hidden"
-        );
-
-    }
-);
-
-
-closeAbout.addEventListener(
-    "click",
-    () => {
-
-        aboutModal.classList.add(
-            "hidden"
-        );
-
-    }
-);
-
-
-aboutModal.addEventListener(
-    "click",
-    event => {
-
-        if (
-            event.target ===
-            aboutModal
-        ) {
-
-            aboutModal.classList.add(
-                "hidden"
-            );
-
-        }
-
-    }
-);
-
-
-/* ========================================= */
-/* INITIALIZE */
-/* ========================================= */
-
-renderHistory();
-
-updateCharacterCount();
+  
