@@ -35,7 +35,7 @@ app.add_middleware(
 
 # Message format received from the website
 class ChatRequest(BaseModel):
-    message: list
+    messages: list
 
 
 # Test endpoint
@@ -107,7 +107,7 @@ SAFETY:
 Your goal is to be a reliable, honest, useful, and intelligent AI assistant while representing Volbasty Studios accurately.
 """
             },
-*request.message
+*request.messages
         ],
         temperature=0.7,
         max_tokens=500
