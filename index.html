@@ -2,49 +2,440 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
 
+    <meta
+        name="description"
+        content="Volby AI - Your intelligent AI assistant"
+    >
+
     <title>Volby AI</title>
 
+    <!-- Main stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <header>
-        <h1>🤖 Volby AI</h1>
-        <p>Your AI assistant</p>
-    </header>
+    <!-- ============================= -->
+    <!-- APP -->
+    <!-- ============================= -->
 
-    <main id="chat">
+    <div id="app">
 
-        <div class="message ai">
-            Hello! I'm Volby. How can I help you today?
-        </div>
 
-    </main>
+        <!-- ============================= -->
+        <!-- SIDEBAR -->
+        <!-- ============================= -->
 
-    <div id="input-area">
+        <aside id="sidebar">
 
-        <div id="input-box">
+            <div class="sidebar-header">
 
-            <input
-                type="text"
-                id="user-input"
-                placeholder="Message Volby..."
-                autocomplete="off"
+                <div class="brand">
+                    <div class="brand-icon">🤖</div>
+
+                    <div>
+                        <h2>Volby AI</h2>
+                        <span>AI Assistant</span>
+                    </div>
+                </div>
+
+                <button
+                    id="close-sidebar"
+                    class="icon-button mobile-only"
+                    aria-label="Close sidebar"
+                >
+                    ✕
+                </button>
+
+            </div>
+
+
+            <button
+                id="new-chat-button"
+                class="new-chat-button"
             >
-
-            <button id="send-button">
-                Send
+                <span>＋</span>
+                New Chat
             </button>
 
-        </div>
+
+            <div class="sidebar-section">
+
+                <p class="section-title">
+                    Conversation
+                </p>
+
+                <button
+                    id="clear-chat-button"
+                    class="sidebar-button"
+                >
+                    🗑️
+                    Clear Conversation
+                </button>
+
+            </div>
+
+
+            <div class="sidebar-bottom">
+
+                <div class="creator-card">
+
+                    <div class="creator-icon">
+                        V
+                    </div>
+
+                    <div>
+                        <strong>Volby AI</strong>
+
+                        <small>
+                            Created by Volbasty Studios
+                        </small>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+
+        <!-- ============================= -->
+        <!-- MAIN AREA -->
+        <!-- ============================= -->
+
+        <main id="main-content">
+
+
+            <!-- ============================= -->
+            <!-- HEADER -->
+            <!-- ============================= -->
+
+            <header id="topbar">
+
+                <div class="topbar-left">
+
+                    <button
+                        id="open-sidebar"
+                        class="icon-button mobile-only"
+                        aria-label="Open sidebar"
+                    >
+                        ☰
+                    </button>
+
+
+                    <div class="mobile-brand">
+
+                        <div class="mini-logo">
+                            🤖
+                        </div>
+
+                        <div>
+                            <strong>Volby AI</strong>
+
+                            <span>
+                                Your AI assistant
+                            </span>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="topbar-actions">
+
+                    <!-- Theme selector -->
+
+                    <div class="theme-wrapper">
+
+                        <button
+                            id="theme-button"
+                            class="topbar-button"
+                            aria-label="Change theme"
+                        >
+                            🎨
+                            <span class="desktop-only">
+                                Theme
+                            </span>
+                        </button>
+
+
+                        <div
+                            id="theme-menu"
+                            class="theme-menu hidden"
+                        >
+
+                            <div class="theme-menu-title">
+                                Choose Theme
+                            </div>
+
+
+                            <button
+                                class="theme-option"
+                                data-theme="midnight"
+                            >
+                                <span class="theme-preview midnight-preview"></span>
+
+                                <span>
+                                    Midnight
+                                </span>
+                            </button>
+
+
+                            <button
+                                class="theme-option"
+                                data-theme="snow"
+                            >
+                                <span class="theme-preview snow-preview"></span>
+
+                                <span>
+                                    Snow
+                                </span>
+                            </button>
+
+
+                            <button
+                                class="theme-option"
+                                data-theme="blue"
+                            >
+                                <span class="theme-preview blue-preview"></span>
+
+                                <span>
+                                    Blue Gradient
+                                </span>
+                            </button>
+
+
+                            <button
+                                class="theme-option"
+                                data-theme="purple"
+                            >
+                                <span class="theme-preview purple-preview"></span>
+
+                                <span>
+                                    Purple Gradient
+                                </span>
+                            </button>
+
+
+                            <button
+                                class="theme-option"
+                                data-theme="ocean"
+                            >
+                                <span class="theme-preview ocean-preview"></span>
+
+                                <span>
+                                    Ocean Gradient
+                                </span>
+                            </button>
+
+
+                            <button
+                                class="theme-option"
+                                data-theme="sunset"
+                            >
+                                <span class="theme-preview sunset-preview"></span>
+
+                                <span>
+                                    Sunset Gradient
+                                </span>
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- New chat -->
+
+                    <button
+                        id="header-new-chat"
+                        class="topbar-button desktop-only"
+                    >
+                        ＋ New Chat
+                    </button>
+
+                </div>
+
+            </header>
+
+
+            <!-- ============================= -->
+            <!-- CHAT -->
+            <!-- ============================= -->
+
+            <section id="chat">
+
+                <!-- Welcome screen -->
+
+                <div id="welcome-screen">
+
+                    <div class="welcome-logo">
+                        🤖
+                    </div>
+
+                    <h1>
+                        Hello, I'm Volby
+                    </h1>
+
+                    <p>
+                        Your intelligent AI assistant.
+                        Ask me anything or start a conversation.
+                    </p>
+
+
+                    <div class="suggestion-grid">
+
+                        <button
+                            class="suggestion-card"
+                            data-prompt="Explain something interesting to me."
+                        >
+                            <span>💡</span>
+
+                            <strong>
+                                Explain something
+                            </strong>
+
+                            <small>
+                                Learn something new
+                            </small>
+                        </button>
+
+
+                        <button
+                            class="suggestion-card"
+                            data-prompt="Help me write a Python program."
+                        >
+                            <span>💻</span>
+
+                            <strong>
+                                Write code
+                            </strong>
+
+                            <small>
+                                Get programming help
+                            </small>
+                        </button>
+
+
+                        <button
+                            class="suggestion-card"
+                            data-prompt="Give me a creative idea for a project."
+                        >
+                            <span>🚀</span>
+
+                            <strong>
+                                Get an idea
+                            </strong>
+
+                            <small>
+                                Explore something creative
+                            </small>
+                        </button>
+
+
+                        <button
+                            class="suggestion-card"
+                            data-prompt="Help me solve a difficult problem step by step."
+                        >
+                            <span>🧠</span>
+
+                            <strong>
+                                Solve a problem
+                            </strong>
+
+                            <small>
+                                Work through it together
+                            </small>
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Messages appear here -->
+
+                <div id="messages-container"></div>
+
+            </section>
+
+
+            <!-- ============================= -->
+            <!-- COMPOSER -->
+            <!-- ============================= -->
+
+            <footer id="composer-area">
+
+                <div id="composer-container">
+
+
+                    <div id="input-wrapper">
+
+                        <textarea
+                            id="user-input"
+                            rows="1"
+                            maxlength="10000"
+                            placeholder="Message Volby..."
+                            autocomplete="off"
+                        ></textarea>
+
+
+                        <div id="input-footer">
+
+                            <span id="character-count">
+                                0 / 10000
+                            </span>
+
+                            <span class="enter-hint">
+                                Enter to send · Shift + Enter for new line
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <button
+                        id="send-button"
+                        aria-label="Send message"
+                    >
+                        <span id="send-icon">
+                            ➤
+                        </span>
+                    </button>
+
+                </div>
+
+
+                <p class="disclaimer">
+                    Volby can make mistakes. Check important information.
+                </p>
+
+            </footer>
+
+        </main>
 
     </div>
+
+
+    <!-- Sidebar overlay for mobile -->
+
+    <div
+        id="sidebar-overlay"
+        class="hidden"
+    ></div>
+
+
+    <!-- ============================= -->
+    <!-- JAVASCRIPT -->
+    <!-- ============================= -->
 
     <script src="script.js"></script>
 
