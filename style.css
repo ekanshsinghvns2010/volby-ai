@@ -1742,3 +1742,35 @@ body[data-theme="sunset"] {
 
 
 }
+
+/* ========================================= */
+/* VOLBY LOGO SIZES */
+/* ========================================= */
+
+.brand-logo img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    display: block;
+}
+
+.header-logo img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    display: block;
+}
+
+.welcome-logo img {
+    width: 55px;
+    height: 55px;
+    object-fit: contain;
+    display: block;
+}
+
+.modal-logo img {
+    width: 45px;
+    height: 45px;
+    object-fit: contain;
+    display: block;
+}
