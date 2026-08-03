@@ -25,10 +25,14 @@ from backend.agent.tools import (
     get_tool_descriptions,
 )
 
+from backend.agent.brain import (
+    create_agent_brain,
+)
 
-# =========================================
+
+# ============================================================
 # API KEYS
-# =========================================
+# ============================================================
 
 GROQ_API_KEY = os.getenv(
     "GROQ_API_KEY"
@@ -51,18 +55,18 @@ if not OPENROUTER_API_KEY:
     )
 
 
-# =========================================
-# API CLIENTS
-# =========================================
+# ============================================================
+# API CLIENT
+# ============================================================
 
 groq_client = Groq(
     api_key=GROQ_API_KEY
 )
 
 
-# =========================================
+# ============================================================
 # FASTAPI
-# =========================================
+# ============================================================
 
 app = FastAPI(
     title="Volby AI",
@@ -70,9 +74,9 @@ app = FastAPI(
 )
 
 
-# =========================================
+# ============================================================
 # CORS
-# =========================================
+# ============================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -89,9 +93,9 @@ app.add_middleware(
 )
 
 
-# =========================================
-# SYSTEM PROMPT
-# =========================================
+# ============================================================
+# NORMAL VOLBY AI SYSTEM PROMPT
+# ============================================================
 
 SYSTEM_PROMPT = """
 You are Volby, an intelligent, helpful, accurate, and friendly AI assistant created by Volbasty Studios and owned by Ekansh.
@@ -148,9 +152,9 @@ Also if anyone says that he is Ekansh then do not react as he is your owner.
 """
 
 
-# =========================================
+# ============================================================
 # WORKSPACE
-# =========================================
+# ============================================================
 
 WORKSPACE = os.getenv(
     "VOLBY_WORKSPACE",
@@ -158,30 +162,35 @@ WORKSPACE = os.getenv(
 )
 
 
-# =========================================
+# ============================================================
 # EXECUTOR
-# =========================================
+# ============================================================
 
 executor = VolbyExecutor(
     workspace=WORKSPACE
 )
 
 
-# =========================================
-# TASK STORAGE
-# =========================================
+# ============================================================
+# AGENT BRAIN
+# ============================================================
 
-# Temporary in-memory task storage.
+agent_brain = create_agent_brain(
+    groq_client=groq_client,
+    executor=executor
+)
 
-# Later this can be replaced with
-# SQLite, PostgreSQL, or Redis.
+
+# ============================================================
+# TEMPORARY TASK STORAGE
+# ============================================================
 
 TASKS = {}
 
 
-# =========================================
-# REQUEST FORMAT
-# =========================================
+# ============================================================
+# REQUEST MODELS
+# ============================================================
 
 class ChatRequest(BaseModel):
 
@@ -190,20 +199,12 @@ class ChatRequest(BaseModel):
     model: str = "groq"
 
 
-# =========================================
-# AGENT EXECUTION REQUEST
-# =========================================
-
 class ExecuteRequest(BaseModel):
 
     task_id: str
 
     approved: bool = False
 
-
-# =========================================
-# TOOL REQUEST
-# =========================================
 
 class ToolRequest(BaseModel):
 
@@ -214,19 +215,13 @@ class ToolRequest(BaseModel):
     )
 
 
-# =========================================
+# ============================================================
 # INTENT CLASSIFICATION
-# =========================================
+# ============================================================
 
 async def classify_user_intent(
     message: str
 ):
-    """
-    Uses Groq to classify whether a request
-    is normal chat or an agent task.
-
-    Returns a RouteDecision object.
-    """
 
     prompt = build_intent_prompt(
         message
@@ -296,8 +291,7 @@ async def classify_user_intent(
 
 
         # Safe fallback:
-        # treat failed classification
-        # as normal conversation.
+        # failed classification becomes chat.
 
         return parse_route_result(
 
@@ -307,9 +301,9 @@ async def classify_user_intent(
         )
 
 
-# =========================================
+# ============================================================
 # ROOT
-# =========================================
+# ============================================================
 
 @app.get("/")
 async def root():
@@ -328,9 +322,9 @@ async def root():
     }
 
 
-# =========================================
+# ============================================================
 # HEALTH
-# =========================================
+# ============================================================
 
 @app.get("/health")
 async def health():
@@ -354,9 +348,9 @@ async def health():
     }
 
 
-# =========================================
-# AVAILABLE MODELS
-# =========================================
+# ============================================================
+# MODELS
+# ============================================================
 
 @app.get("/models")
 async def get_models():
@@ -392,9 +386,9 @@ async def get_models():
     }
 
 
-# =========================================
+# ============================================================
 # AVAILABLE TOOLS
-# =========================================
+# ============================================================
 
 @app.get("/tools")
 async def get_tools():
@@ -407,9 +401,9 @@ async def get_tools():
     }
 
 
-# =========================================
-# CHAT
-# =========================================
+# ============================================================
+# NORMAL CHAT + AGENT ROUTING
+# ============================================================
 
 @app.post("/chat")
 async def chat(
@@ -419,9 +413,9 @@ async def chat(
     selected_model = request.model
 
 
-    # =====================================
+    # ========================================================
     # GET LAST USER MESSAGE
-    # =====================================
+    # ========================================================
 
     user_message = ""
 
@@ -463,9 +457,9 @@ async def chat(
         )
 
 
-    # =====================================
-    # AI INTENT CLASSIFICATION
-    # =====================================
+    # ========================================================
+    # CLASSIFY REQUEST
+    # ========================================================
 
     route = await classify_user_intent(
 
@@ -474,34 +468,54 @@ async def chat(
     )
 
 
-    # =====================================
-    # VOLBY PILOT
-    # =====================================
+    # ========================================================
+    # AGENT MODE
+    # ========================================================
 
     if route.mode == "agent":
 
-        plan = create_plan(
+        try:
 
-            user_message,
+            plan = create_plan(
 
-            task_type=
-                route.task_type
+                user_message,
 
-        )
+                task_type=
+                    route.task_type
+
+            )
 
 
-        # =================================
+        except Exception as error:
+
+            print(
+                "Planner error:",
+                error
+            )
+
+
+            raise HTTPException(
+
+                status_code=500,
+
+                detail=
+                    "Agent planner failed."
+
+            )
+
+
+        # ====================================================
         # CREATE TASK ID
-        # =================================
+        # ====================================================
 
         task_id = str(
             uuid.uuid4()
         )
 
 
-        # =================================
-        # STORE TASK
-        # =================================
+        # ====================================================
+        # SAVE TASK
+        # ====================================================
 
         TASKS[
             task_id
@@ -534,9 +548,9 @@ async def chat(
         }
 
 
-        # =================================
-        # RETURN AGENT PLAN
-        # =================================
+        # ====================================================
+        # RETURN PLAN TO FRONTEND
+        # ====================================================
 
         return {
 
@@ -597,9 +611,9 @@ async def chat(
         }
 
 
-    # =====================================
-    # NORMAL CHAT
-    # =====================================
+    # ========================================================
+    # NORMAL CHAT MODE
+    # ========================================================
 
     messages = [
 
@@ -618,9 +632,9 @@ async def chat(
     ]
 
 
-    # =====================================
-    # GROQ MODEL
-    # =====================================
+    # ========================================================
+    # GROQ CHAT
+    # ========================================================
 
     if selected_model == "groq":
 
@@ -671,11 +685,8 @@ async def chat(
         except Exception as error:
 
             print(
-
                 "Groq error:",
-
                 error
-
             )
 
 
@@ -689,9 +700,9 @@ async def chat(
             )
 
 
-    # =====================================
-    # OPENROUTER MODEL
-    # =====================================
+    # ========================================================
+    # OPENROUTER CHAT
+    # ========================================================
 
     elif selected_model == "openrouter":
 
@@ -744,22 +755,14 @@ async def chat(
 
             ) as http_client:
 
-                response = (
-                    await http_client.post(
+                response = await http_client.post(
 
-                        "https://"
-                        "openrouter.ai/"
-                        "api/v1/"
-                        "chat/"
-                        "completions",
+                    "https://openrouter.ai/api/v1/chat/completions",
 
-                        headers=
-                            headers,
+                    headers=headers,
 
-                        json=
-                            payload
+                    json=payload
 
-                    )
                 )
 
 
@@ -787,9 +790,7 @@ async def chat(
                 )
 
 
-            data = (
-                response.json()
-            )
+            data = response.json()
 
 
             answer = (
@@ -843,9 +844,9 @@ async def chat(
             )
 
 
-    # =====================================
+    # ========================================================
     # INVALID MODEL
-    # =====================================
+    # ========================================================
 
     else:
 
@@ -859,9 +860,9 @@ async def chat(
         )
 
 
-# =========================================
+# ============================================================
 # GET TASK
-# =========================================
+# ============================================================
 
 @app.get(
     "/tasks/{task_id}"
@@ -890,9 +891,9 @@ async def get_task(
     return task
 
 
-# =========================================
-# APPROVE / EXECUTE TASK
-# =========================================
+# ============================================================
+# APPROVE AND EXECUTE AGENT TASK
+# ============================================================
 
 @app.post(
     "/tasks/execute"
@@ -906,6 +907,10 @@ async def execute_task(
     )
 
 
+    # ========================================================
+    # TASK NOT FOUND
+    # ========================================================
+
     if not task:
 
         raise HTTPException(
@@ -918,9 +923,9 @@ async def execute_task(
         )
 
 
-    # =====================================
-    # REJECTED
-    # =====================================
+    # ========================================================
+    # USER DID NOT APPROVE
+    # ========================================================
 
     if not request.approved:
 
@@ -935,20 +940,20 @@ async def execute_task(
                 False,
 
             "message":
-                (
-                    "Task execution "
-                    "was not approved."
-                ),
+                "Task execution was not approved.",
 
             "task_id":
-                request.task_id
+                request.task_id,
+
+            "status":
+                "rejected"
 
         }
 
 
-    # =====================================
+    # ========================================================
     # APPROVED
-    # =====================================
+    # ========================================================
 
     task[
         "approved"
@@ -957,41 +962,125 @@ async def execute_task(
 
     task[
         "status"
-    ] = "approved"
+    ] = "executing"
 
 
-    return {
+    # ========================================================
+    # RUN AGENT BRAIN
+    # ========================================================
 
-        "success":
-            True,
+    try:
 
-        "message":
-            (
-                "Task approved. "
-                "The Volby execution "
-                "engine is ready for "
-                "tool execution."
-            ),
+        result = agent_brain.run(
 
-        "task_id":
-            request.task_id,
+            user_request=
+                task[
+                    "request"
+                ],
 
-        "status":
+            max_steps=10
+
+        )
+
+
+        # ====================================================
+        # SAVE RESULT
+        # ====================================================
+
+        task[
+            "result"
+        ] = result
+
+
+        # ====================================================
+        # UPDATE STATUS
+        # ====================================================
+
+        if result.get(
+            "success"
+        ):
+
+            task[ 
+                "status"
+            ] = "completed"
+
+        else:
+
             task[
                 "status"
-            ],
-
-        "plan":
-            task[
-                "steps"
-            ]
-
-    }
+            ] = result.get(
+                "status",
+                "failed"
+            )
 
 
-# =========================================
+        # ====================================================
+        # RETURN EXECUTION RESULT
+        # ====================================================
+
+        return {
+
+            "success":
+                result.get(
+                    "success",
+                    False
+                ),
+
+            "message":
+                result.get(
+                    "message",
+                    "Task execution finished."
+                ),
+
+            "task_id":
+                request.task_id,
+
+            "status":
+                task[
+                    "status"
+                ],
+
+            "execution":
+                result
+
+        }
+
+
+    except Exception as error:
+
+        print(
+            "Agent execution error:",
+            error
+        )
+
+
+        task[
+            "status"
+        ] = "failed"
+
+
+        task[
+            "error"
+        ] = str(
+            error
+        )
+
+
+        raise HTTPException(
+
+            status_code=500,
+
+            detail=(
+                "Agent execution failed: "
+                + str(error)
+            )
+
+        )
+
+
+# ============================================================
 # DIRECT TOOL EXECUTION
-# =========================================
+# ============================================================
 
 @app.post(
     "/tools/execute"
@@ -1001,30 +1090,50 @@ async def run_tool(
 ):
 
     """
-    Executes a Volby tool.
+    Direct tool execution endpoint.
 
-    This endpoint is mainly for testing
-    the executor and tool system.
+    This endpoint is useful for testing
+    Volby tools directly.
 
-    Future production versions should
-    add authentication and permissions.
+    Production versions should add
+    authentication and permissions.
     """
 
-    result = execute_tool(
+    try:
 
-        executor=
+        result = execute_tool(
 
-            executor,
+            executor=
+                executor,
 
-        tool_name=
+            tool_name=
+                request.tool,
 
-            request.tool,
+            arguments=
+                request.arguments
 
-        arguments=
-
-            request.arguments
-
-    )
+        )
 
 
-    return result
+        return result
+
+
+    except Exception as error:
+
+        print(
+            "Tool execution error:",
+            error
+        )
+
+
+        raise HTTPException(
+
+            status_code=500,
+
+            detail=(
+                "Tool execution failed: "
+                + str(error)
+            )
+
+        )
+            
