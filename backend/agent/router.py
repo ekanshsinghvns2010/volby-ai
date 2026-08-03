@@ -64,3 +64,10 @@ def parse_intent_result(result: str) -> RequestMode:
         return "agent"
 
     return "chat"
+def classify_with_result(result: str) -> str:
+    """
+    Converts an AI classification response into
+    a safe routing decision.
+    """
+
+    return parse_intent_result(result)
