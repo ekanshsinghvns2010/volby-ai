@@ -6,7 +6,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from groq import Groq
-from backend.agent.router import route_request
+from backend.agent.router import (
+    build_intent_prompt,
+    classify_with_result,
+)
 from backend.agent.planner import create_plan
 
 # =========================================
@@ -36,7 +39,78 @@ if not OPENROUTER_API_KEY:
 groq_client = Groq(
     api_key=GROQ_API_KEY
 )
+async def classify_user_intent(
+    message: str,
+) -> str:
+    """
+    Uses Groq to classify whether a request
+    is normal chat or a Volby Pilot task.
+    """
 
+    prompt = build_intent_prompt(
+        message
+    )
+
+    try:
+
+        response = (
+            groq_client
+            .chat
+            .completions
+            .create(
+
+                model=
+                    "llama-3.3-70b-versatile",
+
+                messages=[
+
+                    {
+                        "role":
+                            "system",
+
+                        "content":
+                            "You are an intent classifier. "
+                            "Return only CHAT or AGENT."
+                    },
+
+                    {
+                        "role":
+                            "user",
+
+                        "content":
+                            prompt
+                    }
+
+                ],
+
+                temperature=0,
+
+                max_tokens=5
+            )
+        )
+
+        result = (
+            response
+            .choices[0]
+            .message
+            .content
+        )
+
+        return classify_with_result(
+            result
+        )
+
+    except Exception as error:
+
+        print(
+            "Intent classification error:",
+            error
+        )
+
+        # Safe fallback:
+        # if classification fails, treat the
+        # request as normal chat.
+        return "chat"
 
 # =========================================
 # FASTAPI
@@ -179,23 +253,29 @@ async def chat(request: ChatRequest):
     selected_model = request.model
 
     # =====================================
-    # VOLBY PILOT ROUTING
+    # AI INTENT CLASSIFICATION
     # =====================================
 
     user_message = ""
 
     if request.messages:
+
         last_message = request.messages[-1]
 
         if isinstance(last_message, dict):
+
             user_message = last_message.get(
                 "content",
                 ""
             )
 
-    request_mode = route_request(
+    request_mode = await classify_user_intent(
         user_message
     )
+
+    # =====================================
+    # VOLBY PILOT
+    # =====================================
 
     if request_mode == "agent":
 
@@ -204,8 +284,11 @@ async def chat(request: ChatRequest):
         )
 
         return {
+
             "response": (
-                "Volby Pilot is preparing this task.\n\n"
+                "Volby Pilot is preparing "
+                "this task.\n\n"
+
                 + "\n".join(
                     f"{index}. {step}"
                     for index, step in enumerate(
@@ -213,14 +296,24 @@ async def chat(request: ChatRequest):
                         start=1
                     )
                 )
-                + "\n\nPermission required before execution."
-            ),
-            "model_used": "Volby Pilot",
-            "mode": "agent",
-            "requires_permission": plan.requires_permission,
-            "plan": plan.steps
-        }
 
+                + "\n\n"
+                "Permission required "
+                "before execution."
+            ),
+
+            "model_used":
+                "Volby Pilot",
+
+            "mode":
+                "agent",
+
+            "requires_permission":
+                plan.requires_permission,
+
+            "plan":
+                plan.steps
+        }   
     # =====================================
     # GROQ MODEL
     # =====================================
