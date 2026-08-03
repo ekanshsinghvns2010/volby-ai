@@ -2342,70 +2342,182 @@ body[data-theme="snow"] .model-selector select option {
 
 }
 /* ========================================= */
-/* VOLBY MODEL SELECTOR - CHAT COMPOSER */
+/* VOLBY MODEL DROPDOWN */
 /* ========================================= */
 
-#input-controls {
+#volby-model-selector {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 8px;
+    flex-shrink: 0;
+    margin-right: auto;
 }
 
-#volby-model-selector {
+/* Current selected model button */
+
+#current-model-button {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-right: auto;
-    flex-shrink: 0;
-}
 
-#volby-model-selector .model-select-button {
-    padding: 7px 13px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 999px;
+    height: 34px;
+    padding: 0 10px;
+
+    border: 1px solid transparent;
+    border-radius: 9px;
+
     background: transparent;
     color: inherit;
+
     font-family: inherit;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
+
     cursor: pointer;
+
     transition:
         background 0.2s ease,
-        border-color 0.2s ease,
-        transform 0.15s ease;
+        border-color 0.2s ease;
 }
 
-#volby-model-selector .model-select-button:hover {
+#current-model-button:hover {
     background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.25);
 }
 
-#volby-model-selector .model-select-button:active {
-    transform: scale(0.96);
+#current-model-button:active {
+    transform: scale(0.97);
 }
 
-#volby-model-selector .model-select-button.active {
-    background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.25);
+.model-arrow {
+    font-size: 12px;
+    opacity: 0.7;
+    transition: transform 0.2s ease;
 }
 
+/* Dropdown */
+
+#model-selector-menu {
+    position: absolute;
+
+    left: 0;
+    bottom: calc(100% + 8px);
+
+    min-width: 180px;
+
+    padding: 6px;
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+
+    background: #1c1c1c;
+
+    box-shadow:
+        0 12px 35px rgba(0, 0, 0, 0.35);
+
+    opacity: 0;
+    visibility: hidden;
+
+    transform:
+        translateY(6px)
+        scale(0.98);
+
+    transform-origin: bottom left;
+
+    transition:
+        opacity 0.15s ease,
+        visibility 0.15s ease,
+        transform 0.15s ease;
+
+    z-index: 1000;
+}
+
+/* Open dropdown */
+
+#model-selector-menu.open {
+    opacity: 1;
+    visibility: visible;
+
+    transform:
+        translateY(0)
+        scale(1);
+}
+
+/* Model option */
+
+.model-option {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 9px 10px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: transparent;
+    color: inherit;
+
+    font-family: inherit;
+    font-size: 13px;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition:
+        background 0.15s ease;
+}
+
+.model-option:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Selected model */
+
+.model-option.selected {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.model-option-check {
+    width: 16px;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    visibility: hidden;
+}
+
+.model-option.selected
+.model-option-check {
+    visibility: visible;
+}
 
 /* ========================================= */
 /* SNOW THEME */
 /* ========================================= */
 
 body[data-theme="snow"]
-#volby-model-selector
-.model-select-button {
-    border-color: rgba(0, 0, 0, 0.15);
+#model-selector-menu {
+    background: #ffffff;
+
+    border-color: rgba(0, 0, 0, 0.12);
+
+    box-shadow:
+        0 12px 35px rgba(0, 0, 0, 0.15);
 }
 
 body[data-theme="snow"]
-#volby-model-selector
-.model-select-button.active {
-    background: rgba(0, 0, 0, 0.08);
+.model-option:hover {
+    background: rgba(0, 0, 0, 0.06);
 }
 
+body[data-theme="snow"]
+.model-option.selected {
+    background: rgba(0, 0, 0, 0.04);
+}
 
 /* ========================================= */
 /* MOBILE */
@@ -2413,14 +2525,14 @@ body[data-theme="snow"]
 
 @media (max-width: 600px) {
 
-    #volby-model-selector {
-        gap: 4px;
+    #current-model-button {
+        height: 32px;
+        padding: 0 8px;
+        font-size: 12px;
     }
 
-    #volby-model-selector
-    .model-select-button {
-        padding: 6px 10px;
-        font-size: 11px;
+    #model-selector-menu {
+        min-width: 160px;
     }
 
 }
