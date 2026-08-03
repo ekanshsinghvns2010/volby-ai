@@ -108,22 +108,67 @@ function createModelSelector() {
     const wrapper = document.createElement("div");
     wrapper.id = "volby-model-selector";
 
+    // Main button showing the currently selected model
+    const currentButton = document.createElement("button");
+    currentButton.type = "button";
+    currentButton.id = "current-model-button";
+    currentButton.className = "current-model-button";
+
+    // Dropdown menu
+    const menu = document.createElement("div");
+    menu.id = "model-selector-menu";
+    menu.className = "model-selector-menu";
+
     MODEL_OPTIONS.forEach(option => {
-        const button = document.createElement("button");
+        const optionButton = document.createElement("button");
 
-        button.type = "button";
-        button.className = "model-select-button";
-        button.textContent = option.label;
-        button.dataset.model = option.value;
+        optionButton.type = "button";
+        optionButton.className = "model-option";
+        optionButton.dataset.model = option.value;
 
-        button.addEventListener("click", () => {
+        optionButton.innerHTML = `
+            <span class="model-option-check">✓</span>
+            <span class="model-option-name">${option.label}</span>
+        `;
+
+        optionButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+
             setSelectedModel(option.value);
+
             updateModelSelectorUI();
+
+            menu.classList.remove("open");
+            currentButton.setAttribute("aria-expanded", "false");
         });
 
-        wrapper.appendChild(button);
+        menu.appendChild(optionButton);
     });
 
+    // Open / close dropdown
+    currentButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+
+        const isOpen = menu.classList.toggle("open");
+
+        currentButton.setAttribute(
+            "aria-expanded",
+            isOpen ? "true" : "false"
+        );
+    });
+
+    // Close when clicking anywhere outside
+    document.addEventListener("click", (event) => {
+        if (!wrapper.contains(event.target)) {
+            menu.classList.remove("open");
+            currentButton.setAttribute("aria-expanded", "false");
+        }
+    });
+
+    wrapper.appendChild(currentButton);
+    wrapper.appendChild(menu);
+
+    // Put selector inside message composer
     const inputControls =
         document.getElementById("input-controls");
 
@@ -133,26 +178,51 @@ function createModelSelector() {
             inputControls.firstChild
         );
     }
-}
+}    
 
 function updateModelSelectorUI() {
-    const wrapper =
-        document.getElementById("volby-model-selector");
+    const currentButton =
+        document.getElementById("current-model-button");
 
-    if (!wrapper) return;
+    const optionButtons =
+        document.querySelectorAll(".model-option");
 
-    const buttons =
-        wrapper.querySelectorAll(".model-select-button");
+    if (!currentButton) {
+        return;
+    }
 
-    buttons.forEach(button => {
-        const isActive =
+    const selectedOption =
+        MODEL_OPTIONS.find(
+            option => option.value === selectedModel
+        );
+
+    if (!selectedOption) {
+        return;
+    }
+
+    // Show current model
+    currentButton.innerHTML = `
+        <span>${selectedOption.label}</span>
+        <span class="model-arrow">▾</span>
+    `;
+
+    // Update selected option
+    optionButtons.forEach(button => {
+        const isSelected =
             button.dataset.model === selectedModel;
 
-        button.style.background = isActive
-            ? "rgba(255,255,255,0.15)"
-            : "transparent";
+        button.classList.toggle(
+            "selected",
+            isSelected
+        );
 
-        button.classList.toggle("active", isActive);
+        const check =
+            button.querySelector(".model-option-check");
+
+        if (check) {
+            check.style.visibility =
+                isSelected ? "visible" : "hidden";
+        }
     });
 }
 
