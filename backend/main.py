@@ -292,7 +292,7 @@ async def chat(request: ChatRequest):
             payload = {
 
                 "model":
-                    "openai/gpt-oss-120b:free",
+                    "openrouter/free",
 
                 "messages":
                     messages,
