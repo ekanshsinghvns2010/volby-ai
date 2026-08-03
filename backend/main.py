@@ -6,7 +6,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from groq import Groq
-
+from agent.router import route_request
+from agent.planner import create_plan
 
 # =========================================
 # API KEYS
