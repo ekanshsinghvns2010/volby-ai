@@ -177,7 +177,8 @@ function createModelSelector() {
             wrapper,
             inputControls.firstChild
         );
-    }
+        updateModelSelectorUI();
+    } 
 }    
 
 function updateModelSelectorUI() {
