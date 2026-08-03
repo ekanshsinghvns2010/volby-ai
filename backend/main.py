@@ -325,15 +325,16 @@ async def chat(request: ChatRequest):
 
                 print(
                     "OpenRouter error:",
+                    response.status_code,
                     response.text
                 )
 
                 raise HTTPException(
 
-                    status_code=500,
+                    status_code=response.status_code,
 
                     detail=
-                        "OpenRouter model failed."
+                        response.text
                 )
 
 
