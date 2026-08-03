@@ -1,23 +1,42 @@
 import os
-
+import uuid
 import httpx
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from groq import Groq
+
 from backend.agent.router import (
     build_intent_prompt,
-    classify_with_result,
+    parse_route_result,
 )
-from backend.agent.planner import create_plan
+
+from backend.agent.planner import (
+    create_plan,
+)
+
+from backend.agent.executor import (
+    VolbyExecutor,
+)
+
+from backend.agent.tools import (
+    execute_tool,
+    get_tool_descriptions,
+)
+
 
 # =========================================
 # API KEYS
 # =========================================
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+GROQ_API_KEY = os.getenv(
+    "GROQ_API_KEY"
+)
+
+OPENROUTER_API_KEY = os.getenv(
+    "OPENROUTER_API_KEY"
+)
 
 
 if not GROQ_API_KEY:
@@ -39,84 +58,16 @@ if not OPENROUTER_API_KEY:
 groq_client = Groq(
     api_key=GROQ_API_KEY
 )
-async def classify_user_intent(
-    message: str,
-) -> str:
-    """
-    Uses Groq to classify whether a request
-    is normal chat or a Volby Pilot task.
-    """
 
-    prompt = build_intent_prompt(
-        message
-    )
-
-    try:
-
-        response = (
-            groq_client
-            .chat
-            .completions
-            .create(
-
-                model=
-                    "llama-3.3-70b-versatile",
-
-                messages=[
-
-                    {
-                        "role":
-                            "system",
-
-                        "content":
-                            "You are an intent classifier. "
-                            "Return only CHAT or AGENT."
-                    },
-
-                    {
-                        "role":
-                            "user",
-
-                        "content":
-                            prompt
-                    }
-
-                ],
-
-                temperature=0,
-
-                max_tokens=5
-            )
-        )
-
-        result = (
-            response
-            .choices[0]
-            .message
-            .content
-        )
-
-        return classify_with_result(
-            result
-        )
-
-    except Exception as error:
-
-        print(
-            "Intent classification error:",
-            error
-        )
-
-        # Safe fallback:
-        # if classification fails, treat the
-        # request as normal chat.
-        return "chat"
 
 # =========================================
 # FASTAPI
 # =========================================
 
-app = FastAPI()
+app = FastAPI(
+    title="Volby AI",
+    version="1.0.0"
+)
 
 
 # =========================================
@@ -198,6 +149,37 @@ Also if anyone says that he is Ekansh then do not react as he is your owner.
 
 
 # =========================================
+# WORKSPACE
+# =========================================
+
+WORKSPACE = os.getenv(
+    "VOLBY_WORKSPACE",
+    "workspace"
+)
+
+
+# =========================================
+# EXECUTOR
+# =========================================
+
+executor = VolbyExecutor(
+    workspace=WORKSPACE
+)
+
+
+# =========================================
+# TASK STORAGE
+# =========================================
+
+# Temporary in-memory task storage.
+
+# Later this can be replaced with
+# SQLite, PostgreSQL, or Redis.
+
+TASKS = {}
+
+
+# =========================================
 # REQUEST FORMAT
 # =========================================
 
@@ -209,6 +191,123 @@ class ChatRequest(BaseModel):
 
 
 # =========================================
+# AGENT EXECUTION REQUEST
+# =========================================
+
+class ExecuteRequest(BaseModel):
+
+    task_id: str
+
+    approved: bool = False
+
+
+# =========================================
+# TOOL REQUEST
+# =========================================
+
+class ToolRequest(BaseModel):
+
+    tool: str
+
+    arguments: dict = Field(
+        default_factory=dict
+    )
+
+
+# =========================================
+# INTENT CLASSIFICATION
+# =========================================
+
+async def classify_user_intent(
+    message: str
+):
+    """
+    Uses Groq to classify whether a request
+    is normal chat or an agent task.
+
+    Returns a RouteDecision object.
+    """
+
+    prompt = build_intent_prompt(
+        message
+    )
+
+    try:
+
+        response = (
+            groq_client
+            .chat
+            .completions
+            .create(
+
+                model=
+                    "llama-3.3-70b-versatile",
+
+                messages=[
+
+                    {
+                        "role":
+                            "system",
+
+                        "content":
+                            (
+                                "You are a strict "
+                                "Volby request "
+                                "classifier."
+                            )
+                    },
+
+                    {
+                        "role":
+                            "user",
+
+                        "content":
+                            prompt
+                    }
+
+                ],
+
+                temperature=0,
+
+                max_tokens=30
+            )
+        )
+
+
+        result = (
+            response
+            .choices[0]
+            .message
+            .content
+        )
+
+
+        return parse_route_result(
+            result
+        )
+
+
+    except Exception as error:
+
+        print(
+            "Intent classification error:",
+            error
+        )
+
+
+        # Safe fallback:
+        # treat failed classification
+        # as normal conversation.
+
+        return parse_route_result(
+
+            "MODE: CHAT\n"
+            "TYPE: conversation"
+
+        )
+
+
+# =========================================
 # ROOT
 # =========================================
 
@@ -216,7 +315,42 @@ class ChatRequest(BaseModel):
 async def root():
 
     return {
-        "message": "Volby AI backend is running!"
+
+        "message":
+            "Volby AI backend is running!",
+
+        "agent":
+            "enabled",
+
+        "status":
+            "online"
+
+    }
+
+
+# =========================================
+# HEALTH
+# =========================================
+
+@app.get("/health")
+async def health():
+
+    return {
+
+        "status":
+            "healthy",
+
+        "agent":
+            "ready",
+
+        "executor":
+            "ready",
+
+        "workspace":
+            str(
+                executor.workspace
+            )
+
     }
 
 
@@ -228,18 +362,48 @@ async def root():
 async def get_models():
 
     return {
+
         "models": [
+
             {
-                "id": "groq",
-                "name": "Llama 3.3 70B",
-                "provider": "Groq"
+                "id":
+                    "groq",
+
+                "name":
+                    "Llama 3.3 70B",
+
+                "provider":
+                    "Groq"
             },
+
             {
-                "id": "openrouter",
-                "name": "GPT-OSS 120B",
-                "provider": "OpenRouter"
+                "id":
+                    "openrouter",
+
+                "name":
+                    "GPT-OSS 120B",
+
+                "provider":
+                    "OpenRouter"
             }
+
         ]
+
+    }
+
+
+# =========================================
+# AVAILABLE TOOLS
+# =========================================
+
+@app.get("/tools")
+async def get_tools():
+
+    return {
+
+        "tools":
+            get_tool_descriptions()
+
     }
 
 
@@ -248,58 +412,165 @@ async def get_models():
 # =========================================
 
 @app.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(
+    request: ChatRequest
+):
 
     selected_model = request.model
+
+
+    # =====================================
+    # GET LAST USER MESSAGE
+    # =====================================
+
+    user_message = ""
+
+
+    if request.messages:
+
+        last_message = (
+            request.messages[-1]
+        )
+
+
+        if isinstance(
+            last_message,
+            dict
+        ):
+
+            user_message = (
+                last_message.get(
+                    "content",
+                    ""
+                )
+            )
+
+
+    user_message = (
+        user_message.strip()
+    )
+
+
+    if not user_message:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail=
+                "Message cannot be empty."
+
+        )
+
 
     # =====================================
     # AI INTENT CLASSIFICATION
     # =====================================
 
-    user_message = ""
+    route = await classify_user_intent(
 
-    if request.messages:
-
-        last_message = request.messages[-1]
-
-        if isinstance(last_message, dict):
-
-            user_message = last_message.get(
-                "content",
-                ""
-            )
-
-    request_mode = await classify_user_intent(
         user_message
+
     )
+
 
     # =====================================
     # VOLBY PILOT
     # =====================================
 
-    if request_mode == "agent":
+    if route.mode == "agent":
 
         plan = create_plan(
-            user_message
+
+            user_message,
+
+            task_type=
+                route.task_type
+
         )
+
+
+        # =================================
+        # CREATE TASK ID
+        # =================================
+
+        task_id = str(
+            uuid.uuid4()
+        )
+
+
+        # =================================
+        # STORE TASK
+        # =================================
+
+        TASKS[
+            task_id
+        ] = {
+
+            "id":
+                task_id,
+
+            "request":
+                user_message,
+
+            "task_type":
+                route.task_type,
+
+            "risk_level":
+                plan.risk_level,
+
+            "steps":
+                plan.steps,
+
+            "requires_permission":
+                plan.requires_permission,
+
+            "status":
+                "awaiting_approval",
+
+            "approved":
+                False
+
+        }
+
+
+        # =================================
+        # RETURN AGENT PLAN
+        # =================================
 
         return {
 
             "response": (
-                "Volby Pilot is preparing "
-                "this task.\n\n"
+
+                "Volby Pilot created "
+                "an execution plan.\n\n"
 
                 + "\n".join(
+
                     f"{index}. {step}"
-                    for index, step in enumerate(
+
+                    for index, step
+                    in enumerate(
+
                         plan.steps,
+
                         start=1
+
                     )
+
                 )
 
                 + "\n\n"
-                "Permission required "
+
+                "Task ID: "
+
+                + task_id
+
+                + "\n\n"
+
+                "Permission is required "
                 "before execution."
+
             ),
 
             "model_used":
@@ -308,12 +579,45 @@ async def chat(request: ChatRequest):
             "mode":
                 "agent",
 
+            "task_id":
+                task_id,
+
+            "task_type":
+                route.task_type,
+
+            "risk_level":
+                plan.risk_level,
+
             "requires_permission":
                 plan.requires_permission,
 
             "plan":
                 plan.steps
-        }   
+
+        }
+
+
+    # =====================================
+    # NORMAL CHAT
+    # =====================================
+
+    messages = [
+
+        {
+
+            "role":
+                "system",
+
+            "content":
+                SYSTEM_PROMPT
+
+        },
+
+        *request.messages
+
+    ]
+
+
     # =====================================
     # GROQ MODEL
     # =====================================
@@ -331,21 +635,13 @@ async def chat(request: ChatRequest):
                     model=
                         "llama-3.3-70b-versatile",
 
-                    messages=[
-                        {
-                            "role":
-                                "system",
-
-                            "content":
-                                SYSTEM_PROMPT
-                        },
-
-                        *request.messages
-                    ],
+                    messages=
+                        messages,
 
                     temperature=0.7,
 
                     max_tokens=500
+
                 )
             )
 
@@ -364,7 +660,10 @@ async def chat(request: ChatRequest):
                     answer,
 
                 "model_used":
-                    "Llama 3.3 70B"
+                    "Llama 3.3 70B",
+
+                "mode":
+                    "chat"
 
             }
 
@@ -372,9 +671,13 @@ async def chat(request: ChatRequest):
         except Exception as error:
 
             print(
+
                 "Groq error:",
+
                 error
+
             )
+
 
             raise HTTPException(
 
@@ -382,6 +685,7 @@ async def chat(request: ChatRequest):
 
                 detail=
                     "Groq model failed."
+
             )
 
 
@@ -393,31 +697,23 @@ async def chat(request: ChatRequest):
 
         try:
 
-            messages = [
-
-                {
-                    "role":
-                        "system",
-
-                    "content":
-                        SYSTEM_PROMPT
-                },
-
-                *request.messages
-
-            ]
-
-
             headers = {
 
                 "Authorization":
-                    f"Bearer {OPENROUTER_API_KEY}",
+                    (
+                        "Bearer "
+                        + OPENROUTER_API_KEY
+                    ),
 
                 "Content-Type":
                     "application/json",
 
                 "HTTP-Referer":
-                    "https://ekanshsinghvns2010.github.io/volby-ai/",
+                    (
+                        "https://"
+                        "ekanshsinghvns2010.github.io/"
+                        "volby-ai/"
+                    ),
 
                 "X-Title":
                     "Volby AI"
@@ -443,46 +739,67 @@ async def chat(request: ChatRequest):
 
 
             async with httpx.AsyncClient(
+
                 timeout=60.0
+
             ) as http_client:
 
-                response = await http_client.post(
+                response = (
+                    await http_client.post(
 
-                    "https://openrouter.ai/api/v1/chat/completions",
+                        "https://"
+                        "openrouter.ai/"
+                        "api/v1/"
+                        "chat/"
+                        "completions",
 
-                    headers=headers,
+                        headers=
+                            headers,
 
-                    json=payload
+                        json=
+                            payload
 
+                    )
                 )
 
 
             if response.status_code != 200:
 
                 print(
+
                     "OpenRouter error:",
+
                     response.status_code,
+
                     response.text
+
                 )
+
 
                 raise HTTPException(
 
-                    status_code=response.status_code,
+                    status_code=
+                        response.status_code,
 
                     detail=
                         response.text
+
                 )
 
 
-            data = response.json()
+            data = (
+                response.json()
+            )
 
 
             answer = (
+
                 data
                 ["choices"]
                 [0]
                 ["message"]
                 ["content"]
+
             )
 
 
@@ -492,7 +809,10 @@ async def chat(request: ChatRequest):
                     answer,
 
                 "model_used":
-                    "GPT-OSS 120B"
+                    "GPT-OSS 120B",
+
+                "mode":
+                    "chat"
 
             }
 
@@ -505,9 +825,13 @@ async def chat(request: ChatRequest):
         except Exception as error:
 
             print(
+
                 "OpenRouter error:",
+
                 error
+
             )
+
 
             raise HTTPException(
 
@@ -515,6 +839,7 @@ async def chat(request: ChatRequest):
 
                 detail=
                     "OpenRouter model failed."
+
             )
 
 
@@ -530,4 +855,176 @@ async def chat(request: ChatRequest):
 
             detail=
                 "Invalid model selected."
+
         )
+
+
+# =========================================
+# GET TASK
+# =========================================
+
+@app.get(
+    "/tasks/{task_id}"
+)
+async def get_task(
+    task_id: str
+):
+
+    task = TASKS.get(
+        task_id
+    )
+
+
+    if not task:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail=
+                "Task not found."
+
+        )
+
+
+    return task
+
+
+# =========================================
+# APPROVE / EXECUTE TASK
+# =========================================
+
+@app.post(
+    "/tasks/execute"
+)
+async def execute_task(
+    request: ExecuteRequest
+):
+
+    task = TASKS.get(
+        request.task_id
+    )
+
+
+    if not task:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail=
+                "Task not found."
+
+        )
+
+
+    # =====================================
+    # REJECTED
+    # =====================================
+
+    if not request.approved:
+
+        task[
+            "status"
+        ] = "rejected"
+
+
+        return {
+
+            "success":
+                False,
+
+            "message":
+                (
+                    "Task execution "
+                    "was not approved."
+                ),
+
+            "task_id":
+                request.task_id
+
+        }
+
+
+    # =====================================
+    # APPROVED
+    # =====================================
+
+    task[
+        "approved"
+    ] = True
+
+
+    task[
+        "status"
+    ] = "approved"
+
+
+    return {
+
+        "success":
+            True,
+
+        "message":
+            (
+                "Task approved. "
+                "The Volby execution "
+                "engine is ready for "
+                "tool execution."
+            ),
+
+        "task_id":
+            request.task_id,
+
+        "status":
+            task[
+                "status"
+            ],
+
+        "plan":
+            task[
+                "steps"
+            ]
+
+    }
+
+
+# =========================================
+# DIRECT TOOL EXECUTION
+# =========================================
+
+@app.post(
+    "/tools/execute"
+)
+async def run_tool(
+    request: ToolRequest
+):
+
+    """
+    Executes a Volby tool.
+
+    This endpoint is mainly for testing
+    the executor and tool system.
+
+    Future production versions should
+    add authentication and permissions.
+    """
+
+    result = execute_tool(
+
+        executor=
+
+            executor,
+
+        tool_name=
+
+            request.tool,
+
+        arguments=
+
+            request.arguments
+
+    )
+
+
+    return result
