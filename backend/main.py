@@ -178,6 +178,48 @@ async def chat(request: ChatRequest):
 
     selected_model = request.model
 
+    # =====================================
+    # VOLBY PILOT ROUTING
+    # =====================================
+
+    user_message = ""
+
+    if request.messages:
+        last_message = request.messages[-1]
+
+        if isinstance(last_message, dict):
+            user_message = last_message.get(
+                "content",
+                ""
+            )
+
+    request_mode = route_request(
+        user_message
+    )
+
+    if request_mode == "agent":
+
+        plan = create_plan(
+            user_message
+        )
+
+        return {
+            "response": (
+                "Volby Pilot is preparing this task.\n\n"
+                + "\n".join(
+                    f"{index}. {step}"
+                    for index, step in enumerate(
+                        plan.steps,
+                        start=1
+                    )
+                )
+                + "\n\nPermission required before execution."
+            ),
+            "model_used": "Volby Pilot",
+            "mode": "agent",
+            "requires_permission": plan.requires_permission,
+            "plan": plan.steps
+        }
 
     # =====================================
     # GROQ MODEL
