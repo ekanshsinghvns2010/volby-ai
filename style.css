@@ -2341,3 +2341,86 @@ body[data-theme="snow"] .model-selector select option {
     }
 
 }
+/* ========================================= */
+/* VOLBY MODEL SELECTOR - CHAT COMPOSER */
+/* ========================================= */
+
+#input-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#volby-model-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: auto;
+    flex-shrink: 0;
+}
+
+#volby-model-selector .model-select-button {
+    padding: 7px 13px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.15s ease;
+}
+
+#volby-model-selector .model-select-button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+#volby-model-selector .model-select-button:active {
+    transform: scale(0.96);
+}
+
+#volby-model-selector .model-select-button.active {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+
+/* ========================================= */
+/* SNOW THEME */
+/* ========================================= */
+
+body[data-theme="snow"]
+#volby-model-selector
+.model-select-button {
+    border-color: rgba(0, 0, 0, 0.15);
+}
+
+body[data-theme="snow"]
+#volby-model-selector
+.model-select-button.active {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+
+/* ========================================= */
+/* MOBILE */
+/* ========================================= */
+
+@media (max-width: 600px) {
+
+    #volby-model-selector {
+        gap: 4px;
+    }
+
+    #volby-model-selector
+    .model-select-button {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+
+}
