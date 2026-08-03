@@ -337,8 +337,7 @@ async def chat(request: ChatRequest):
                 )
 
 
-            data =
-                response.json()
+            data = response.json()
 
 
             answer = (
