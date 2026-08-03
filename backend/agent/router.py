@@ -1,58 +1,66 @@
 """
 Volby Pilot Request Router
 
-Determines whether a user message should be handled
-as a normal Volby conversation or as an agent task.
+First version of AI-powered intent routing.
 """
 
-AGENT_TRIGGERS = (
-    "create",
-    "make",
-    "build",
-    "organize",
-    "move",
-    "rename",
-    "delete",
-    "send",
-    "schedule",
-    "open",
-    "close",
-    "download",
-    "upload",
-    "install",
-    "run",
-    "execute",
-    "edit",
-    "modify",
-    "change",
-    "fix",
-)
+from typing import Literal
 
 
-def is_agent_request(message: str) -> bool:
+RequestMode = Literal["chat", "agent"]
+
+
+def build_intent_prompt(message: str) -> str:
     """
-    Returns True when a message appears to request
-    an action rather than a normal conversational answer.
+    Creates a prompt for an AI model to classify
+    whether the user wants normal conversation
+    or wants Volby Pilot to perform an action.
     """
 
-    if not message:
-        return False
+    return f"""
+Classify the user's request into exactly one category:
 
-    text = message.strip().lower()
+CHAT
+- The user wants information, explanation, advice,
+  brainstorming, conversation, learning, or an answer.
+- The user is not asking the AI to perform an external action.
 
-    return any(
-        text.startswith(trigger)
-        or f" {trigger} " in text
-        for trigger in AGENT_TRIGGERS
-    )
+AGENT
+- The user wants the AI to perform an action,
+  operate a tool, modify something, create something,
+  manage something, send something, schedule something,
+  or complete a real-world or computer task.
+
+Important:
+- "How do I organize my study schedule?" = CHAT
+- "Organize my Downloads folder." = AGENT
+- "Can you explain how to organize files?" = CHAT
+- "Organize these files for me." = AGENT
+- "Build me a website." = AGENT
+- "What is a website?" = CHAT
+
+Return ONLY one word:
+CHAT
+or
+AGENT
+
+User request:
+{message}
+"""
 
 
-def route_request(message: str) -> str:
+def parse_intent_result(result: str) -> RequestMode:
     """
-    Returns either 'chat' or 'agent'.
+    Converts the model's classification into
+    a safe internal routing decision.
     """
 
-    if is_agent_request(message):
+    if not result:
+        return "chat"
+
+    result = result.strip().upper()
+
+    if result == "AGENT":
         return "agent"
 
     return "chat"
