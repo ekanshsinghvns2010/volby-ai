@@ -1018,15 +1018,263 @@ async function sendMessage() {
         });
 
         const aiMessage =
-            addMessage(
-                answer,
-                "ai"
-            );
+    addMessage(
+        answer,
+        "ai"
+    );
 
-        addResponseCopyButton(
-            aiMessage,
-            answer
+addResponseCopyButton(
+    aiMessage,
+    answer
+);
+
+
+/* =========================
+   VOLBY PILOT AGENT PLAN
+========================= */
+
+if (
+    data.mode === "agent" &&
+    data.task_id
+) {
+
+    const agentBox =
+        document.createElement(
+            "div"
         );
+
+    agentBox.className =
+        "volby-agent-plan";
+
+
+    const planTitle =
+        document.createElement(
+            "h3"
+        );
+
+    planTitle.textContent =
+        "🤖 Volby Pilot";
+
+
+    agentBox.appendChild(
+        planTitle
+    );
+
+
+    const planList =
+        document.createElement(
+            "ol"
+        );
+
+
+    if (
+        Array.isArray(
+            data.plan
+        )
+    ) {
+
+        data.plan.forEach(
+            step => {
+
+                const item =
+                    document.createElement(
+                        "li"
+                    );
+
+                item.textContent =
+                    step;
+
+                planList.appendChild(
+                    item
+                );
+
+            }
+        );
+
+    }
+
+
+    agentBox.appendChild(
+        planList
+    );
+
+
+    const permissionText =
+        document.createElement(
+            "p"
+        );
+
+    permissionText.textContent =
+        "Volby Pilot needs your permission before executing this task.";
+
+
+    agentBox.appendChild(
+        permissionText
+    );
+
+
+    /* =====================
+       APPROVE BUTTON
+    ===================== */
+
+    const approveButton =
+        document.createElement(
+            "button"
+        );
+
+    approveButton.textContent =
+        "⚡ Approve & Execute";
+
+
+    approveButton.addEventListener(
+        "click",
+        async () => {
+
+            approveButton.disabled =
+                true;
+
+            approveButton.textContent =
+                "Executing...";
+
+
+            try {
+
+                const executeResponse =
+                    await fetch(
+                        "https://volby-ai-backend.onrender.com/tasks/execute",
+                        {
+                            method:
+                                "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body:
+                                JSON.stringify({
+                                    task_id:
+                                        data.task_id,
+
+                                    approved:
+                                        true
+                                })
+                        }
+                    );
+
+
+                const result =
+                    await executeResponse.json();
+
+
+                if (
+                    !executeResponse.ok
+                ) {
+
+                    throw new Error(
+                        result.detail ||
+                        "Agent execution failed."
+                    );
+
+                }
+
+
+                approveButton.textContent =
+                    "✓ Execution Complete";
+
+
+                const resultText =
+                    document.createElement(
+                        "p"
+                    );
+
+
+                resultText.textContent =
+                    result.message ||
+                    "Task execution completed.";
+
+
+                agentBox.appendChild(
+                    resultText
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Agent execution error:",
+                    error
+                );
+
+
+                approveButton.disabled =
+                    false;
+
+
+                approveButton.textContent =
+                    "⚡ Retry Execution";
+
+
+                const errorText =
+                    document.createElement(
+                        "p"
+                    );
+
+
+                errorText.textContent =
+                    "Agent error: " +
+                    error.message;
+
+
+                agentBox.appendChild(
+                    errorText
+                );
+
+            }
+
+        }
+    );
+
+
+    agentBox.appendChild(
+        approveButton
+    );
+
+
+    /* =====================
+       CANCEL BUTTON
+    ===================== */
+
+    const cancelButton =
+        document.createElement(
+            "button"
+        );
+
+
+    cancelButton.textContent =
+        "Cancel";
+
+
+    cancelButton.addEventListener(
+        "click",
+        () => {
+
+            agentBox.remove();
+
+        }
+    );
+
+
+    agentBox.appendChild(
+        cancelButton
+    );
+
+
+    aiMessage.appendChild(
+        agentBox
+    );
+
+}
 
         saveCurrentChat(text);
 
