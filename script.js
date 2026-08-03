@@ -108,11 +108,6 @@ function createModelSelector() {
     const wrapper = document.createElement("div");
     wrapper.id = "volby-model-selector";
 
-    wrapper.style.display = "flex";
-    wrapper.style.gap = "8px";
-    wrapper.style.margin = "12px 16px";
-    wrapper.style.flexWrap = "wrap";
-
     MODEL_OPTIONS.forEach(option => {
         const button = document.createElement("button");
 
@@ -120,17 +115,6 @@ function createModelSelector() {
         button.className = "model-select-button";
         button.textContent = option.label;
         button.dataset.model = option.value;
-
-        button.style.padding = "6px 14px";
-        button.style.borderRadius = "999px";
-        button.style.border = "1px solid rgba(255,255,255,0.2)";
-        button.style.color = "inherit";
-        button.style.cursor = "pointer";
-        button.style.fontSize = "13px";
-        button.style.background =
-            option.value === selectedModel
-                ? "rgba(255,255,255,0.15)"
-                : "transparent";
 
         button.addEventListener("click", () => {
             setSelectedModel(option.value);
@@ -140,13 +124,14 @@ function createModelSelector() {
         wrapper.appendChild(button);
     });
 
-    if (newChatButton && newChatButton.parentNode) {
-        newChatButton.parentNode.insertBefore(
+    const inputControls =
+        document.getElementById("input-controls");
+
+    if (inputControls) {
+        inputControls.insertBefore(
             wrapper,
-            newChatButton.nextSibling
+            inputControls.firstChild
         );
-    } else {
-        document.body.appendChild(wrapper);
     }
 }
 
