@@ -176,66 +176,115 @@ Return JSON only.
     # ========================================================
 
     def ask_model(
-        self,
-        messages
-    ) -> Dict[str, Any]:
+    self,
+    messages
+) -> Dict[str, Any]:
 
-        response = (
+    response = (
+        self.groq_client
+        .chat
+        .completions
+        .create(
 
-            self.groq_client
-            .chat
-            .completions
-            .create(
+            model=
+                "llama-3.3-70b-versatile",
 
-                model=
-                    "llama-3.3-70b-versatile",
+            messages=
+                messages,
 
-                messages=
-                    messages,
+            temperature=0,
 
-                temperature=0,
+            max_tokens=1000,
 
-                max_tokens=1000
-
-            )
-
-        )
-
-
-        content = (
-
-            response
-            .choices[0]
-            .message
-            .content
+            response_format={
+                "type":
+                    "json_object"
+            }
 
         )
+    )
 
 
-        # Remove accidental Markdown fences.
+    content = (
+        response
+        .choices[0]
+        .message
+        .content
+    )
 
-        content = (
+
+    if not content:
+
+        return {
+
+            "action":
+                "ask",
+
+            "message":
+                "The agent returned an empty response."
+
+        }
+
+
+    content = content.strip()
+
+
+    try:
+
+        decision = json.loads(
             content
-            .replace(
-                "```json",
-                ""
-            )
-            .replace(
-                "```",
-                ""
-            )
-            .strip()
+        )
+
+    except json.JSONDecodeError:
+
+        # Try to extract JSON if the model
+        # returned extra text around it.
+
+        start = content.find(
+            "{"
+        )
+
+        end = content.rfind(
+            "}"
         )
 
 
-        try:
+        if (
+            start != -1
+            and end != -1
+            and end > start
+        ):
 
-            return json.loads(
-                content
-            )
+            try:
 
+                decision = json.loads(
 
-        except json.JSONDecodeError:
+                    content[
+                        start:
+                        end + 1
+                    ]
+
+                )
+
+            except json.JSONDecodeError:
+
+                return {
+
+                    "action":
+                        "ask",
+
+                    "message":
+                        (
+                            "The agent returned "
+                            "an invalid JSON response."
+                        ),
+
+                    "raw":
+                        content
+
+                }
+
+        else:
 
             return {
 
@@ -244,7 +293,7 @@ Return JSON only.
 
                 "message":
                     (
-                        "The agent produced "
+                        "The agent returned "
                         "an invalid response."
                     ),
 
@@ -253,6 +302,30 @@ Return JSON only.
 
             }
 
+
+    if not isinstance(
+        decision,
+        dict
+    ):
+
+        return {
+
+            "action":
+                "ask",
+
+            "message":
+                (
+                    "The agent response "
+                    "was not a valid object."
+                ),
+
+            "raw":
+                content
+
+        }
+
+
+    return decision
 
     # ========================================================
     # EXECUTE TOOL
