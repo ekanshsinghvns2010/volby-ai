@@ -1,272 +1,180 @@
-"""
-VOLBY AI - AGENT BRAIN
-
-The Agent Brain is the decision-making layer
-between the AI model and Volby's tools.
-
-Architecture:
-
-User Request
-     ↓
-Router
-     ↓
-Planner
-     ↓
-Agent Brain
-     ↓
-Choose Tool
-     ↓
-Execute Tool
-     ↓
-Inspect Result
-     ↓
-Continue / Fix / Finish
-
-The Brain does NOT directly access files.
-
-It uses:
-
-    tools.py
-        ↓
-    executor.py
-
-This keeps the system modular and safer.
-"""
-
-
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List
 
-
-from groq import Groq
-
-
-from backend.agent.tools import (
-    execute_tool,
-    get_tool_descriptions,
-)
-
-
-# ============================================================
-# AGENT BRAIN
-# ============================================================
 
 class VolbyAgentBrain:
-    """
-    Main reasoning engine for Volby Pilot.
-
-    The brain receives a user task and decides
-    which tools should be used.
-    """
-
 
     def __init__(
         self,
-        groq_client: Groq,
-        executor,
+        groq_client,
+        executor
     ):
 
-        self.groq_client = (
-            groq_client
-        )
-
-        self.executor = (
-            executor
-        )
-
+        self.groq_client = groq_client
+        self.executor = executor
 
     # ========================================================
     # SYSTEM PROMPT
     # ========================================================
 
-    def build_system_prompt(
-        self
-    ) -> str:
+    def build_system_prompt(self):
 
-        tools = (
-            get_tool_descriptions()
-        )
+        return """
+You are Volby Pilot, an AI agent that can perform tasks using tools.
 
+Your job is to understand the user's request and complete it using
+the available tools.
 
-        tool_text = "\n".join(
+You must return ONLY valid JSON.
 
-            f"- {tool['name']}: "
-            f"{tool['description']}"
+You can choose one of these actions:
 
-            for tool in tools
+1. tool
+Use this when you need to execute a tool.
 
-        )
+Format:
 
-
-        return f"""
-You are Volby Pilot, the execution agent
-inside Volby AI.
-
-Your job is to complete user tasks by
-selecting and using available tools.
-
-AVAILABLE TOOLS:
-
-{tool_text}
-
-
-IMPORTANT RULES:
-
-1. Only use tools that are actually available.
-
-2. Never invent a tool.
-
-3. Return valid JSON only.
-
-4. When a task requires a file operation,
-   choose the correct file tool.
-
-5. Always inspect existing files before
-   overwriting important code when possible.
-
-6. Do not claim that a tool was executed
-   unless the system actually executed it.
-
-7. If a tool fails, analyze the error and
-   decide whether another tool call can fix it.
-
-8. Continue working until the task is complete
-   or you genuinely cannot continue.
-
-9. Do not perform dangerous or destructive
-   operations without explicit permission.
-
-10. Keep tool arguments precise.
-
-AVAILABLE RESPONSE TYPES:
-
-To call a tool:
-
-{{
+{
     "action": "tool",
-    "tool": "tool_name",
-    "arguments": {{
-        "path": "example.txt"
-    }}
-}}
+    "tool": "TOOL_NAME",
+    "arguments": {}
+}
 
-To finish:
+2. ask
+Use this when you need clarification from the user.
 
-{{
-    "action": "finish",
-    "message": "Task completed successfully."
-}}
+Format:
 
-To ask the user:
-
-{{
+{
     "action": "ask",
-    "message": "I need more information."
-}}
+    "message": "Your question"
+}
 
+3. final
+Use this when the task is complete.
 
-Never return Markdown.
+Format:
 
-Return JSON only.
+{
+    "action": "final",
+    "message": "Explain what was completed"
+}
+
+Always use the available tools when they are required.
+
+Never claim that you created or modified a file unless the tool
+actually succeeded.
+
+After using a tool, inspect its result and decide what to do next.
+
+Your goal is to complete the user's task accurately.
 """
 
-
     # ========================================================
-    # ASK AI
+    # ASK MODEL
     # ========================================================
 
-def ask_model(
-    self,
-    messages
-) -> Dict[str, Any]:
+    def ask_model(
+        self,
+        messages
+    ) -> Dict[str, Any]:
 
-    response = (
-        self.groq_client
-        .chat
-        .completions
-        .create(
+        response = (
+            self.groq_client
+            .chat
+            .completions
+            .create(
 
-            model=
-                "llama-3.3-70b-versatile",
+                model=
+                    "llama-3.3-70b-versatile",
 
-            messages=
-                messages,
+                messages=
+                    messages,
 
-            temperature=0,
+                temperature=0,
 
-            max_tokens=1000,
+                max_tokens=1000,
 
-            response_format={
-                "type":
-                    "json_object"
+                response_format={
+                    "type":
+                        "json_object"
+                }
+
+            )
+        )
+
+        content = (
+            response
+            .choices[0]
+            .message
+            .content
+        )
+
+        if not content:
+
+            return {
+
+                "action":
+                    "ask",
+
+                "message":
+                    "The agent returned an empty response."
+
             }
 
-        )
-    )
+        content = content.strip()
 
+        try:
 
-    content = (
-        response
-        .choices[0]
-        .message
-        .content
-    )
+            decision = json.loads(
+                content
+            )
 
+        except json.JSONDecodeError:
 
-    if not content:
+            start = content.find(
+                "{"
+            )
 
-        return {
+            end = content.rfind(
+                "}"
+            )
 
-            "action":
-                "ask",
+            if (
+                start != -1
+                and end > start
+            ):
 
-            "message":
-                "The agent returned an empty response."
+                try:
 
-        }
+                    decision = json.loads(
 
+                        content[
+                            start:
+                            end + 1
+                        ]
 
-    content = content.strip()
+                    )
 
+                except json.JSONDecodeError:
 
-    try:
+                    return {
 
-        decision = json.loads(
-            content
-        )
+                        "action":
+                            "ask",
 
-    except json.JSONDecodeError:
+                        "message":
+                            (
+                                "The agent returned "
+                                "invalid JSON."
+                            ),
 
-        # Try to extract JSON if the model
-        # returned extra text around it.
+                        "raw":
+                            content
 
-        start = content.find(
-            "{"
-        )
+                    }
 
-        end = content.rfind(
-            "}"
-        )
-
-
-        if (
-            start != -1
-            and end != -1
-            and end > start
-        ):
-
-            try:
-
-                decision = json.loads(
-
-                    content[
-                        start:
-                        end + 1
-                    ]
-
-                )
-
-            except json.JSONDecodeError:
+            else:
 
                 return {
 
@@ -276,7 +184,7 @@ def ask_model(
                     "message":
                         (
                             "The agent returned "
-                            "an invalid JSON response."
+                            "an invalid response."
                         ),
 
                     "raw":
@@ -284,7 +192,10 @@ def ask_model(
 
                 }
 
-        else:
+        if not isinstance(
+            decision,
+            dict
+        ):
 
             return {
 
@@ -293,8 +204,8 @@ def ask_model(
 
                 "message":
                     (
-                        "The agent returned "
-                        "an invalid response."
+                        "The agent response "
+                        "was not a valid object."
                     ),
 
                 "raw":
@@ -302,89 +213,53 @@ def ask_model(
 
             }
 
-
-    if not isinstance(
-        decision,
-        dict
-    ):
-
-        return {
-
-            "action":
-                "ask",
-
-            "message":
-                (
-                    "The agent response "
-                    "was not a valid object."
-                ),
-
-            "raw":
-                content
-
-        }
-
-
-    return decision
+        return decision
 
     # ========================================================
     # EXECUTE TOOL
     # ========================================================
 
     def execute_tool_call(
-
         self,
-
         tool_name: str,
-
         arguments: Dict[str, Any]
-
     ):
 
-        return execute_tool(
+        try:
 
-            executor=
-                self.executor,
+            result = (
+                self.executor
+                .execute(
+                    tool_name,
+                    arguments
+                )
+            )
 
-            tool_name=
-                tool_name,
+            return result
 
-            arguments=
-                arguments
+        except Exception as error:
 
-        )
+            return {
 
+                "success":
+                    False,
+
+                "error":
+                    str(
+                        error
+                    )
+
+            }
 
     # ========================================================
     # RUN AGENT
     # ========================================================
 
     def run(
-
         self,
-
         user_request: str,
-
         max_steps: int = 10
-
     ) -> Dict[str, Any]:
-
-        """
-        Runs the Volby agent loop.
-
-        The agent can:
-
-            Think
-              ↓
-            Tool
-              ↓
-            Result
-              ↓
-            Think again
-
-        until it finishes.
-        """
-
 
         messages = [
 
@@ -410,50 +285,70 @@ def ask_model(
 
         ]
 
-
-        execution_log = []
-
-
-        for step_number in range(
-
-            1,
-
-            max_steps + 1
-
+        for step in range(
+            max_steps
         ):
 
-            # ================================================
-            # ASK AI WHAT TO DO
-            # ================================================
+            try:
 
-            decision = self.ask_model(
-
-                messages
-
-            )
-
-
-            action = decision.get(
-
-                "action"
-
-            )
-
-
-            # ================================================
-            # FINISH
-            # ================================================
-
-            if action == "finish":
-
-                message = decision.get(
-
-                    "message",
-
-                    "Task completed."
-
+                decision = self.ask_model(
+                    messages
                 )
 
+            except Exception as error:
+
+                return {
+
+                    "success":
+                        False,
+
+                    "error":
+                        (
+                            "Agent model error: "
+                            + str(
+                                error
+                            )
+                        ),
+
+                    "steps":
+                        step + 1
+
+                }
+
+            action = decision.get(
+                "action"
+            )
+
+            # =================================================
+            # ASK USER
+            # =================================================
+
+            if action == "ask":
+
+                return {
+
+                    "success":
+                        True,
+
+                    "status":
+                        "needs_input",
+
+                    "message":
+                        decision.get(
+                            "message",
+                            "The agent needs more information."
+                        ),
+
+                    "steps":
+                        step + 1
+
+                }
+
+            # =================================================
+            # FINAL ANSWER
+            # =================================================
+
+            if action == "final":
 
                 return {
 
@@ -464,223 +359,126 @@ def ask_model(
                         "completed",
 
                     "message":
-                        message,
+                        decision.get(
+                            "message",
+                            "Task completed."
+                        ),
 
                     "steps":
-                        execution_log
+                        step + 1
 
                 }
 
+            # =================================================
+            # TOOL CALL
+            # =================================================
 
-            # ================================================
-            # ASK USER
-            # ================================================
+            if action == "tool":
 
-            if action == "ask":
+                tool_name = decision.get(
+                    "tool"
+                )
 
-                message = decision.get(
+                arguments = decision.get(
+                    "arguments",
+                    {}
+                )
 
-                    "message",
+                if not tool_name:
 
-                    "More information is required."
+                    return {
+
+                        "success":
+                            False,
+
+                        "error":
+                            "Agent did not specify a tool.",
+
+                        "steps":
+                            step + 1
+
+                    }
+
+                tool_result = (
+                    self.execute_tool_call(
+
+                        tool_name,
+
+                        arguments
+
+                    )
+                )
+
+                messages.append(
+
+                    {
+
+                        "role":
+                            "assistant",
+
+                        "content":
+                            json.dumps(
+                                decision
+                            )
+
+                    }
 
                 )
 
+                messages.append(
 
-                return {
+                    {
 
-                    "success":
-                        False,
+                        "role":
+                            "user",
 
-                    "status":
-                        "needs_input",
+                        "content":
+                            (
+                                "Tool execution result:\n"
+                                + json.dumps(
+                                    tool_result,
+                                    default=str
+                                )
+                                + "\n\n"
+                                "Continue the task. "
+                                "Use another tool if needed, "
+                                "or return a final response."
+                            )
 
-                    "message":
-                        message,
+                    }
 
-                    "steps":
-                        execution_log
-
-                }
-
-
-            # ================================================
-            # TOOL ACTION
-            # ================================================
-
-            if action != "tool":
-
-                execution_log.append({
-
-                    "step":
-                        step_number,
-
-                    "error":
-                        "Unknown agent action.",
-
-                    "decision":
-                        decision
-
-                })
-
-
-                messages.append({
-
-                    "role":
-                        "user",
-
-                    "content":
-                        (
-                            "Your previous response "
-                            "contained an invalid action. "
-                            "Return valid JSON."
-                        )
-
-                })
-
+                )
 
                 continue
 
+            # =================================================
+            # UNKNOWN ACTION
+            # =================================================
 
-            # ================================================
-            # GET TOOL
-            # ================================================
+            return {
 
-            tool_name = decision.get(
+                "success":
+                    False,
 
-                "tool"
-
-            )
-
-
-            arguments = decision.get(
-
-                "arguments",
-
-                {}
-
-            )
-
-
-            if not tool_name:
-
-                execution_log.append({
-
-                    "step":
-                        step_number,
-
-                    "error":
-                        "No tool name provided."
-
-                })
-
-
-                messages.append({
-
-                    "role":
-                        "user",
-
-                    "content":
-                        (
-                            "You must provide a valid "
-                            "tool name."
+                "error":
+                    (
+                        "Unknown agent action: "
+                        + str(
+                            action
                         )
+                    ),
 
-                })
+                "agent_response":
+                    decision,
 
+                "steps":
+                    step + 1
 
-                continue
+            }
 
-
-            # ================================================
-            # EXECUTE
-            # ================================================
-
-            result = self.execute_tool_call(
-
-                tool_name=
-
-                    tool_name,
-
-                arguments=
-
-                    arguments
-
-            )
-
-
-            # ================================================
-            # LOG
-            # ================================================
-
-            execution_log.append({
-
-                "step":
-                    step_number,
-
-                "action":
-                    "tool",
-
-                "tool":
-                    tool_name,
-
-                "arguments":
-                    arguments,
-
-                "result":
-                    result
-
-            })
-
-
-            # ================================================
-            # SEND RESULT BACK TO AI
-            # ================================================
-
-            messages.append({
-
-                "role":
-                    "assistant",
-
-                "content":
-                    json.dumps(
-
-                        decision
-
-                    )
-
-            })
-
-
-            messages.append({
-
-                "role":
-                    "user",
-
-                "content":
-
-                    "TOOL RESULT:\n"
-
-                    + json.dumps(
-
-                        result,
-
-                        indent=2
-
-                    )
-
-                    + "\n\n"
-
-                    "Continue the task. "
-                    "Use another tool if necessary, "
-                    "or finish if the task is complete."
-
-            })
-
-
-        # ====================================================
-        # MAX STEPS
-        # ====================================================
+        # =====================================================
+        # MAX STEPS REACHED
+        # =====================================================
 
         return {
 
@@ -690,14 +488,14 @@ def ask_model(
             "status":
                 "max_steps_reached",
 
-            "message":
+            "error":
                 (
-                    "The agent reached its maximum "
-                    "execution steps."
+                    "Agent reached the maximum "
+                    "number of execution steps."
                 ),
 
             "steps":
-                execution_log
+                max_steps
 
         }
 
@@ -707,16 +505,9 @@ def ask_model(
 # ============================================================
 
 def create_agent_brain(
-
-    groq_client: Groq,
-
+    groq_client,
     executor
-
-) -> VolbyAgentBrain:
-
-    """
-    Creates a Volby Agent Brain.
-    """
+):
 
     return VolbyAgentBrain(
 
