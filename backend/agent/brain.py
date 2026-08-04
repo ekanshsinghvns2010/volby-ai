@@ -1,6 +1,14 @@
 import json
-from typing import Any, Dict, List
-from backend.agent.tools import execute_tool
+from typing import Any, Dict
+
+from backend.agent.tools import (
+    execute_tool,
+)
+
+
+# ============================================================
+# VOLBY AGENT BRAIN
+# ============================================================
 
 class VolbyAgentBrain:
 
@@ -11,67 +19,106 @@ class VolbyAgentBrain:
     ):
 
         self.groq_client = groq_client
+
         self.executor = executor
+
 
     # ========================================================
     # SYSTEM PROMPT
     # ========================================================
 
-    def build_system_prompt(self):
+    def build_system_prompt(
+        self
+    ):
 
         return """
-You are Volby Pilot, an AI agent that can perform tasks using tools.
+You are Volby Pilot, an intelligent AI coding and computer task agent.
 
-Your job is to understand the user's request and complete it using
-the available tools.
+Your job is to understand the user's request and complete the task
+using the available tools.
 
-You must return ONLY valid JSON.
+You can work with files inside the Volby workspace.
 
-You can choose one of these actions:
+AVAILABLE TOOLS:
 
-1. tool
+- list_files
+- read_file
+- create_file
+- write_file
+- delete_file
+- create_directory
+- file_exists
+
+IMPORTANT:
+
+When the user asks you to create, modify, read, or verify files,
+you MUST use the appropriate tool.
+
+Never claim that a file was created unless the tool actually
+reports success.
+
+When creating a website, you can create multiple files such as:
+
+- index.html
+- style.css
+- script.js
+
+You can create folders when necessary.
+
+After creating or modifying files, use file_exists or read_file
+to verify that the operation succeeded.
+
+You should continue working until the user's task is complete.
+
+Return ONLY valid JSON.
+
+There are three possible actions.
+
+ACTION 1: TOOL
+
 Use this when you need to execute a tool.
 
 Format:
 
 {
     "action": "tool",
-    "tool": "TOOL_NAME",
-    "arguments": {}
+    "tool": "create_file",
+    "arguments": {
+        "path": "index.html",
+        "content": "<!DOCTYPE html>..."
+    }
 }
 
-2. ask
-Use this when you need clarification from the user.
+ACTION 2: ASK
+
+Use this when you genuinely need clarification.
 
 Format:
 
 {
     "action": "ask",
-    "message": "Your question"
+    "message": "What should the website be called?"
 }
 
-3. final
-Use this when the task is complete.
+ACTION 3: FINAL
+
+Use this when the task is completely finished.
 
 Format:
 
 {
     "action": "final",
-    "message": "Explain what was completed"
+    "message": "The website was created successfully."
 }
 
-Always use the available tools when they are required.
+Do not say a task is complete if it has not actually been completed.
 
-Never claim that you created or modified a file unless the tool
-actually succeeded.
-
-After using a tool, inspect its result and decide what to do next.
-
-Your goal is to complete the user's task accurately.
+Always use tools when tools are required.
 """
 
+
     # ========================================================
-    # ASK MODEL
+    # ASK GROQ
     # ========================================================
 
     def ask_model(
@@ -93,7 +140,7 @@ Your goal is to complete the user's task accurately.
 
                 temperature=0,
 
-                max_tokens=1000,
+                max_tokens=2000,
 
                 response_format={
                     "type":
@@ -103,12 +150,16 @@ Your goal is to complete the user's task accurately.
             )
         )
 
+
         content = (
+
             response
             .choices[0]
             .message
             .content
+
         )
+
 
         if not content:
 
@@ -118,11 +169,17 @@ Your goal is to complete the user's task accurately.
                     "ask",
 
                 "message":
-                    "The agent returned an empty response."
+                    "The AI returned an empty response."
 
             }
 
+
         content = content.strip()
+
+
+        # ====================================================
+        # PARSE JSON
+        # ====================================================
 
         try:
 
@@ -130,7 +187,11 @@ Your goal is to complete the user's task accurately.
                 content
             )
 
+
         except json.JSONDecodeError:
+
+            # Try to extract JSON if the model
+            # accidentally returned extra text.
 
             start = content.find(
                 "{"
@@ -139,6 +200,7 @@ Your goal is to complete the user's task accurately.
             end = content.rfind(
                 "}"
             )
+
 
             if (
                 start != -1
@@ -155,6 +217,7 @@ Your goal is to complete the user's task accurately.
                         ]
 
                     )
+
 
                 except json.JSONDecodeError:
 
@@ -174,6 +237,7 @@ Your goal is to complete the user's task accurately.
 
                     }
 
+
             else:
 
                 return {
@@ -192,6 +256,11 @@ Your goal is to complete the user's task accurately.
 
                 }
 
+
+        # ====================================================
+        # VALIDATE RESULT
+        # ====================================================
+
         if not isinstance(
             decision,
             dict
@@ -206,49 +275,61 @@ Your goal is to complete the user's task accurately.
                     (
                         "The agent response "
                         "was not a valid object."
-                    ),
-
-                "raw":
-                    content
+                    )
 
             }
 
+
         return decision
+
 
     # ========================================================
     # EXECUTE TOOL
     # ========================================================
 
     def execute_tool_call(
-    self,
-    tool_name: str,
-    arguments: Dict[str, Any]
-):
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any]
+    ):
 
         try:
 
-        result = execute_tool(
-            executor=self.executor,
-            tool_name=tool_name,
-            arguments=arguments
-        )
+            result = execute_tool(
 
-        return result
+                executor=
+                    self.executor,
+
+                tool_name=
+                    tool_name,
+
+                arguments=
+                    arguments
+
+            )
+
+
+            return result
+
 
         except Exception as error:
 
-        return {
+            return {
 
-            "success":
-                False,
+                "success":
+                    False,
 
-            "message":
-                "Tool execution failed.",
+                "message":
+                    "Tool execution failed.",
 
-            "error":
-                str(error)
+                "error":
+                    str(
+                        error
+                    )
 
-        }
+            }
+
+
     # ========================================================
     # RUN AGENT
     # ========================================================
@@ -283,15 +364,28 @@ Your goal is to complete the user's task accurately.
 
         ]
 
+
+        # ====================================================
+        # AGENT LOOP
+        # ====================================================
+
         for step in range(
             max_steps
         ):
 
+
+            # =================================================
+            # ASK AI WHAT TO DO
+            # =================================================
+
             try:
 
                 decision = self.ask_model(
+
                     messages
+
                 )
+
 
             except Exception as error:
 
@@ -299,6 +393,9 @@ Your goal is to complete the user's task accurately.
 
                     "success":
                         False,
+
+                    "status":
+                        "error",
 
                     "error":
                         (
@@ -313,9 +410,15 @@ Your goal is to complete the user's task accurately.
 
                 }
 
+
+            # =================================================
+            # GET ACTION
+            # =================================================
+
             action = decision.get(
                 "action"
             )
+
 
             # =================================================
             # ASK USER
@@ -333,8 +436,11 @@ Your goal is to complete the user's task accurately.
 
                     "message":
                         decision.get(
+
                             "message",
+
                             "The agent needs more information."
+
                         ),
 
                     "steps":
@@ -342,8 +448,9 @@ Your goal is to complete the user's task accurately.
 
                 }
 
+
             # =================================================
-            # FINAL ANSWER
+            # FINAL
             # =================================================
 
             if action == "final":
@@ -358,8 +465,11 @@ Your goal is to complete the user's task accurately.
 
                     "message":
                         decision.get(
+
                             "message",
-                            "Task completed."
+
+                            "Task completed successfully."
+
                         ),
 
                     "steps":
@@ -367,8 +477,9 @@ Your goal is to complete the user's task accurately.
 
                 }
 
+
             # =================================================
-            # TOOL CALL
+            # TOOL
             # =================================================
 
             if action == "tool":
@@ -377,10 +488,15 @@ Your goal is to complete the user's task accurately.
                     "tool"
                 )
 
+
                 arguments = decision.get(
+
                     "arguments",
+
                     {}
+
                 )
+
 
                 if not tool_name:
 
@@ -389,23 +505,41 @@ Your goal is to complete the user's task accurately.
                         "success":
                             False,
 
+                        "status":
+                            "error",
+
                         "error":
-                            "Agent did not specify a tool.",
+                            (
+                                "The agent did not "
+                                "specify a tool."
+                            ),
 
                         "steps":
                             step + 1
 
                     }
 
+
+                # =============================================
+                # EXECUTE TOOL
+                # =============================================
+
                 tool_result = (
                     self.execute_tool_call(
 
-                        tool_name,
+                        tool_name=
+                            tool_name,
 
-                        arguments
+                        arguments=
+                            arguments
 
                     )
                 )
+
+
+                # =============================================
+                # ADD AI DECISION TO MEMORY
+                # =============================================
 
                 messages.append(
 
@@ -416,12 +550,21 @@ Your goal is to complete the user's task accurately.
 
                         "content":
                             json.dumps(
-                                decision
+
+                                decision,
+
+                                default=str
+
                             )
 
                     }
 
                 )
+
+
+                # =============================================
+                # ADD TOOL RESULT TO MEMORY
+                # =============================================
 
                 messages.append(
 
@@ -432,22 +575,38 @@ Your goal is to complete the user's task accurately.
 
                         "content":
                             (
-                                "Tool execution result:\n"
+                                "The tool "
+                                + tool_name
+                                + " was executed.\n\n"
+
+                                "Tool result:\n"
+
                                 + json.dumps(
+
                                     tool_result,
+
                                     default=str
+
                                 )
+
                                 + "\n\n"
-                                "Continue the task. "
-                                "Use another tool if needed, "
-                                "or return a final response."
+
+                                "Analyze this result. "
+                                "If the task is not complete, "
+                                "use another tool. "
+                                "If the task is complete, "
+                                "return a final response."
                             )
 
                     }
 
                 )
 
+
+                # Continue agent loop.
+
                 continue
+
 
             # =================================================
             # UNKNOWN ACTION
@@ -457,6 +616,9 @@ Your goal is to complete the user's task accurately.
 
                 "success":
                     False,
+
+                "status":
+                    "error",
 
                 "error":
                     (
@@ -474,9 +636,10 @@ Your goal is to complete the user's task accurately.
 
             }
 
-        # =====================================================
-        # MAX STEPS REACHED
-        # =====================================================
+
+        # ====================================================
+        # MAX STEPS
+        # ====================================================
 
         return {
 
@@ -488,7 +651,7 @@ Your goal is to complete the user's task accurately.
 
             "error":
                 (
-                    "Agent reached the maximum "
+                    "The agent reached the maximum "
                     "number of execution steps."
                 ),
 
@@ -499,7 +662,7 @@ Your goal is to complete the user's task accurately.
 
 
 # ============================================================
-# FACTORY
+# CREATE AGENT BRAIN
 # ============================================================
 
 def create_agent_brain(
