@@ -225,7 +225,7 @@ Your goal is to complete the user's task accurately.
     arguments: Dict[str, Any]
 ):
 
-    try:
+        try:
 
         result = execute_tool(
             executor=self.executor,
@@ -235,7 +235,7 @@ Your goal is to complete the user's task accurately.
 
         return result
 
-    except Exception as error:
+        except Exception as error:
 
         return {
 
