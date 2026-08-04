@@ -175,7 +175,7 @@ Return JSON only.
     # ASK AI
     # ========================================================
 
-    def ask_model(
+def ask_model(
     self,
     messages
 ) -> Dict[str, Any]:
