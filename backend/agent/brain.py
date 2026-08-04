@@ -1,6 +1,6 @@
 import json
 from typing import Any, Dict, List
-
+from backend.agent.tools import execute_tool
 
 class VolbyAgentBrain:
 
@@ -220,37 +220,35 @@ Your goal is to complete the user's task accurately.
     # ========================================================
 
     def execute_tool_call(
-        self,
-        tool_name: str,
-        arguments: Dict[str, Any]
-    ):
+    self,
+    tool_name: str,
+    arguments: Dict[str, Any]
+):
 
-        try:
+    try:
 
-            result = (
-                self.executor
-                .execute(
-                    tool_name,
-                    arguments
-                )
-            )
+        result = execute_tool(
+            executor=self.executor,
+            tool_name=tool_name,
+            arguments=arguments
+        )
 
-            return result
+        return result
 
-        except Exception as error:
+    except Exception as error:
 
-            return {
+        return {
 
-                "success":
-                    False,
+            "success":
+                False,
 
-                "error":
-                    str(
-                        error
-                    )
+            "message":
+                "Tool execution failed.",
 
-            }
+            "error":
+                str(error)
 
+        }
     # ========================================================
     # RUN AGENT
     # ========================================================
