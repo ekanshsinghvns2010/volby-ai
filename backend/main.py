@@ -1,20 +1,10 @@
 import os
-import uuid
 import httpx
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from groq import Groq
-
-from backend.agent.router import (
-    build_intent_prompt,
-    parse_route_result,
-)
-
-from backend.agent.planner import (
-    create_plan,
-)
 
 from backend.agent.executor import (
     VolbyExecutor,
@@ -25,22 +15,14 @@ from backend.agent.tools import (
     get_tool_descriptions,
 )
 
-from backend.agent.brain import (
-    create_agent_brain,
-)
-
 
 # ============================================================
 # API KEYS
 # ============================================================
 
-GROQ_API_KEY = os.getenv(
-    "GROQ_API_KEY"
-)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-OPENROUTER_API_KEY = os.getenv(
-    "OPENROUTER_API_KEY"
-)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 
 if not GROQ_API_KEY:
@@ -94,7 +76,7 @@ app.add_middleware(
 
 
 # ============================================================
-# NORMAL VOLBY AI SYSTEM PROMPT
+# VOLBY SYSTEM PROMPT
 # ============================================================
 
 SYSTEM_PROMPT = """
@@ -148,7 +130,13 @@ SAFETY:
 
 Your goal is to be a reliable, honest, useful, and intelligent AI assistant while representing Volbasty Studios accurately.
 
-Also if anyone says that he is Ekansh then do not react as he is your owner.
+IMPORTANT:
+- Normal chat mode is currently active.
+- Do NOT automatically activate Volby Pilot.
+- Do NOT create execution plans.
+- Do NOT ask for execution permission.
+- Do NOT pretend to create files or modify the user's device.
+- When the user asks for code, provide the code normally in the conversation.
 """
 
 
@@ -172,23 +160,6 @@ executor = VolbyExecutor(
 
 
 # ============================================================
-# AGENT BRAIN
-# ============================================================
-
-agent_brain = create_agent_brain(
-    groq_client=groq_client,
-    executor=executor
-)
-
-
-# ============================================================
-# TEMPORARY TASK STORAGE
-# ============================================================
-
-TASKS = {}
-
-
-# ============================================================
 # REQUEST MODELS
 # ============================================================
 
@@ -199,13 +170,6 @@ class ChatRequest(BaseModel):
     model: str = "groq"
 
 
-class ExecuteRequest(BaseModel):
-
-    task_id: str
-
-    approved: bool = False
-
-
 class ToolRequest(BaseModel):
 
     tool: str
@@ -213,92 +177,6 @@ class ToolRequest(BaseModel):
     arguments: dict = Field(
         default_factory=dict
     )
-
-
-# ============================================================
-# INTENT CLASSIFICATION
-# ============================================================
-
-async def classify_user_intent(
-    message: str
-):
-
-    prompt = build_intent_prompt(
-        message
-    )
-
-    try:
-
-        response = (
-            groq_client
-            .chat
-            .completions
-            .create(
-
-                model=
-                    "llama-3.3-70b-versatile",
-
-                messages=[
-
-                    {
-                        "role":
-                            "system",
-
-                        "content":
-                            (
-                                "You are a strict "
-                                "Volby request "
-                                "classifier."
-                            )
-                    },
-
-                    {
-                        "role":
-                            "user",
-
-                        "content":
-                            prompt
-                    }
-
-                ],
-
-                temperature=0,
-
-                max_tokens=30
-            )
-        )
-
-
-        result = (
-            response
-            .choices[0]
-            .message
-            .content
-        )
-
-
-        return parse_route_result(
-            result
-        )
-
-
-    except Exception as error:
-
-        print(
-            "Intent classification error:",
-            error
-        )
-
-
-        # Safe fallback:
-        # failed classification becomes chat.
-
-        return parse_route_result(
-
-            "MODE: CHAT\n"
-            "TYPE: conversation"
-
-        )
 
 
 # ============================================================
@@ -314,7 +192,10 @@ async def root():
             "Volby AI backend is running!",
 
         "agent":
-            "enabled",
+            "disabled",
+
+        "mode":
+            "normal_chat",
 
         "status":
             "online"
@@ -335,7 +216,7 @@ async def health():
             "healthy",
 
         "agent":
-            "ready",
+            "disabled",
 
         "executor":
             "ready",
@@ -402,7 +283,7 @@ async def get_tools():
 
 
 # ============================================================
-# NORMAL CHAT + AGENT ROUTING
+# CHAT
 # ============================================================
 
 @app.post("/chat")
@@ -422,9 +303,7 @@ async def chat(
 
     if request.messages:
 
-        last_message = (
-            request.messages[-1]
-        )
+        last_message = request.messages[-1]
 
 
         if isinstance(
@@ -432,17 +311,13 @@ async def chat(
             dict
         ):
 
-            user_message = (
-                last_message.get(
-                    "content",
-                    ""
-                )
+            user_message = last_message.get(
+                "content",
+                ""
             )
 
 
-    user_message = (
-        user_message.strip()
-    )
+    user_message = user_message.strip()
 
 
     if not user_message:
@@ -458,167 +333,14 @@ async def chat(
 
 
     # ========================================================
-    # CLASSIFY REQUEST
-    # ========================================================
-
-    #route = await classify_user_intent(
-
-        #user_message
-
-    #)
-
-
-    # ========================================================
-    # AGENT MODE
-    # ========================================================
-
-    '''if route.mode == "agent":
-
-        try:
-
-            plan = create_plan(
-
-                user_message,
-
-                task_type=
-                    route.task_type
-
-            )
-
-
-        except Exception as error:
-
-            print(
-                "Planner error:",
-                error
-            )
-
-
-            raise HTTPException(
-
-                status_code=500,
-
-                detail=
-                    "Agent planner failed."
-
-            )'''
-
-
-        # ====================================================
-        # CREATE TASK ID
-        # ====================================================
-
-        task_id = str(
-            uuid.uuid4()
-        )
-
-
-        # ====================================================
-        # SAVE TASK
-        # ====================================================
-
-        TASKS[
-            task_id
-        ] = {
-
-            "id":
-                task_id,
-
-            "request":
-                user_message,
-
-            "task_type":
-                route.task_type,
-
-            "risk_level":
-                plan.risk_level,
-
-            "steps":
-                plan.steps,
-
-            "requires_permission":
-                plan.requires_permission,
-
-            "status":
-                "awaiting_approval",
-
-            "approved":
-                False
-
-        }
-
-
-        # ====================================================
-        # RETURN PLAN TO FRONTEND
-        # ====================================================
-
-        return {
-
-            "response": (
-
-                "Volby Pilot created "
-                "an execution plan.\n\n"
-
-                + "\n".join(
-
-                    f"{index}. {step}"
-
-                    for index, step
-                    in enumerate(
-
-                        plan.steps,
-
-                        start=1
-
-                    )
-
-                )
-
-                + "\n\n"
-
-                "Task ID: "
-
-                + task_id
-
-                + "\n\n"
-
-                "Permission is required "
-                "before execution."
-
-            ),
-
-            "model_used":
-                "Volby Pilot",
-
-            "mode":
-                "agent",
-
-            "task_id":
-                task_id,
-
-            "task_type":
-                route.task_type,
-
-            "risk_level":
-                plan.risk_level,
-
-            "requires_permission":
-                plan.requires_permission,
-
-            "plan":
-                plan.steps
-
-        }
-
-
-    # ========================================================
-    # NORMAL CHAT MODE
+    # NORMAL CHAT ONLY
+    #
+    # Volby Pilot / Codex routing is intentionally disabled.
     # ========================================================
 
     messages = [
 
         {
-
             "role":
                 "system",
 
@@ -633,7 +355,7 @@ async def chat(
 
 
     # ========================================================
-    # GROQ CHAT
+    # GROQ
     # ========================================================
 
     if selected_model == "groq":
@@ -701,7 +423,7 @@ async def chat(
 
 
     # ========================================================
-    # OPENROUTER CHAT
+    # OPENROUTER
     # ========================================================
 
     elif selected_model == "openrouter":
@@ -750,18 +472,18 @@ async def chat(
 
 
             async with httpx.AsyncClient(
-
                 timeout=60.0
-
             ) as http_client:
 
                 response = await http_client.post(
 
                     "https://openrouter.ai/api/v1/chat/completions",
 
-                    headers=headers,
+                    headers=
+                        headers,
 
-                    json=payload
+                    json=
+                        payload
 
                 )
 
@@ -794,13 +516,8 @@ async def chat(
 
 
             answer = (
-
-                data
-                ["choices"]
-                [0]
-                ["message"]
-                ["content"]
-
+                data["choices"][0]
+                ["message"]["content"]
             )
 
 
@@ -826,11 +543,8 @@ async def chat(
         except Exception as error:
 
             print(
-
                 "OpenRouter error:",
-
                 error
-
             )
 
 
@@ -861,279 +575,29 @@ async def chat(
 
 
 # ============================================================
-# GET TASK
-# ============================================================
-
-@app.get(
-    "/tasks/{task_id}"
-)
-async def get_task(
-    task_id: str
-):
-
-    task = TASKS.get(
-        task_id
-    )
-
-
-    if not task:
-
-        raise HTTPException(
-
-            status_code=404,
-
-            detail=
-                "Task not found."
-
-        )
-
-
-    return task
-
-
-# ============================================================
-# APPROVE AND EXECUTE AGENT TASK
-# ============================================================
-
-@app.post(
-    "/tasks/execute"
-)
-async def execute_task(
-    request: ExecuteRequest
-):
-
-    task = TASKS.get(
-        request.task_id
-    )
-
-
-    # ========================================================
-    # TASK NOT FOUND
-    # ========================================================
-
-    if not task:
-
-        raise HTTPException(
-
-            status_code=404,
-
-            detail=
-                "Task not found."
-
-        )
-
-
-    # ========================================================
-    # USER DID NOT APPROVE
-    # ========================================================
-
-    if not request.approved:
-
-        task[
-            "status"
-        ] = "rejected"
-
-
-        return {
-
-            "success":
-                False,
-
-            "message":
-                "Task execution was not approved.",
-
-            "task_id":
-                request.task_id,
-
-            "status":
-                "rejected"
-
-        }
-
-
-    # ========================================================
-    # APPROVED
-    # ========================================================
-
-    task[
-        "approved"
-    ] = True
-
-
-    task[
-        "status"
-    ] = "executing"
-
-
-    # ========================================================
-    # RUN AGENT BRAIN
-    # ========================================================
-
-    try:
-
-        result = agent_brain.run(
-
-            user_request=
-                task[
-                    "request"
-                ],
-
-            max_steps=10
-
-        )
-
-
-        # ====================================================
-        # SAVE RESULT
-        # ====================================================
-
-        task[
-            "result"
-        ] = result
-
-
-        # ====================================================
-        # UPDATE STATUS
-        # ====================================================
-
-        if result.get(
-            "success"
-        ):
-
-            task[ 
-                "status"
-            ] = "completed"
-
-        else:
-
-            task[
-                "status"
-            ] = result.get(
-                "status",
-                "failed"
-            )
-
-
-        # ====================================================
-        # RETURN EXECUTION RESULT
-        # ====================================================
-
-        return {
-
-            "success":
-                result.get(
-                    "success",
-                    False
-                ),
-
-            "message":
-                result.get(
-                    "message",
-                    "Task execution finished."
-                ),
-
-            "task_id":
-                request.task_id,
-
-            "status":
-                task[
-                    "status"
-                ],
-
-            "execution":
-                result
-
-        }
-
-
-    except Exception as error:
-
-        print(
-            "Agent execution error:",
-            error
-        )
-
-
-        task[
-            "status"
-        ] = "failed"
-
-
-        task[
-            "error"
-        ] = str(
-            error
-        )
-
-
-        raise HTTPException(
-
-            status_code=500,
-
-            detail=(
-                "Agent execution failed: "
-                + str(error)
-            )
-
-        )
-
-
-# ============================================================
 # DIRECT TOOL EXECUTION
+#
+# Kept available for future development.
+# It is NOT automatically called by /chat.
 # ============================================================
 
-@app.post(
-    "/tools/execute"
-)
+@app.post("/tools/execute")
 async def run_tool(
     request: ToolRequest
 ):
 
-    """
-    Direct tool execution endpoint.
+    result = execute_tool(
 
-    This endpoint is useful for testing
-    Volby tools directly.
+        executor=
+            executor,
 
-    Production versions should add
-    authentication and permissions.
-    """
+        tool_name=
+            request.tool,
 
-    try:
+        arguments=
+            request.arguments
 
-        result = execute_tool(
-
-            executor=
-                executor,
-
-            tool_name=
-                request.tool,
-
-            arguments=
-                request.arguments
-
-        )
+    )
 
 
-        return result
-
-
-    except Exception as error:
-
-        print(
-            "Tool execution error:",
-            error
-        )
-
-
-        raise HTTPException(
-
-            status_code=500,
-
-            detail=(
-                "Tool execution failed: "
-                + str(error)
-            )
-
-        )
-            
+    return result
