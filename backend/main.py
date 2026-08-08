@@ -461,18 +461,18 @@ async def chat(
     # CLASSIFY REQUEST
     # ========================================================
 
-    route = await classify_user_intent(
+    #route = await classify_user_intent(
 
-        user_message
+        #user_message
 
-    )
+    #)
 
 
     # ========================================================
     # AGENT MODE
     # ========================================================
 
-    if route.mode == "agent":
+    '''if route.mode == "agent":
 
         try:
 
@@ -501,7 +501,7 @@ async def chat(
                 detail=
                     "Agent planner failed."
 
-            )
+            )'''
 
 
         # ====================================================
