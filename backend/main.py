@@ -21,7 +21,6 @@ from backend.agent.tools import (
 # ============================================================
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 
@@ -245,7 +244,7 @@ async def get_models():
                     "groq",
 
                 "name":
-                    "Llama 3.3 70B",
+                    "Groq Compound",
 
                 "provider":
                     "Groq"
@@ -334,8 +333,6 @@ async def chat(
 
     # ========================================================
     # NORMAL CHAT ONLY
-    #
-    # Volby Pilot / Codex routing is intentionally disabled.
     # ========================================================
 
     messages = [
@@ -355,7 +352,7 @@ async def chat(
 
 
     # ========================================================
-    # GROQ
+    # VOLBY — GROQ COMPOUND
     # ========================================================
 
     if selected_model == "groq":
@@ -369,14 +366,14 @@ async def chat(
                 .create(
 
                     model=
-                        "llama-3.3-70b-versatile",
+                        "groq/compound",
 
                     messages=
                         messages,
 
                     temperature=0.7,
 
-                    max_tokens=500
+                    max_tokens=8192
 
                 )
             )
@@ -396,7 +393,7 @@ async def chat(
                     answer,
 
                 "model_used":
-                    "Llama 3.3 70B",
+                    "Groq Compound",
 
                 "mode":
                     "chat"
@@ -417,13 +414,13 @@ async def chat(
                 status_code=500,
 
                 detail=
-                    "Groq model failed : {error}"
+                    f"Groq model failed: {error}"
 
             )
 
 
     # ========================================================
-    # OPENROUTER
+    # VOLBY PRO — OPENROUTER
     # ========================================================
 
     elif selected_model == "openrouter":
@@ -466,7 +463,7 @@ async def chat(
                     0.7,
 
                 "max_tokens":
-                    500
+                    8000
 
             }
 
@@ -553,7 +550,7 @@ async def chat(
                 status_code=500,
 
                 detail=
-                    "OpenRouter model failed."
+                    f"OpenRouter model failed: {error}"
 
             )
 
@@ -576,9 +573,6 @@ async def chat(
 
 # ============================================================
 # DIRECT TOOL EXECUTION
-#
-# Kept available for future development.
-# It is NOT automatically called by /chat.
 # ============================================================
 
 @app.post("/tools/execute")
