@@ -417,7 +417,7 @@ async def chat(
                 status_code=500,
 
                 detail=
-                    "Groq model failed."
+                    "Groq model failed : {error}"
 
             )
 
