@@ -3643,7 +3643,133 @@ body {
     max-width: 100%;
     overflow-x: hidden;
 }
+/* ============================================================
+   VOLBY AI — MOBILE HEIGHT/LAYOUT FIX
+   Add this at the VERY END of style.css
+============================================================ */
 
+html,
+body {
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+body {
+    min-height: 100dvh;
+}
+
+/* Prevent the welcome area from becoming enormous */
+#welcome-screen {
+    min-height: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    padding-top: 28px !important;
+    padding-bottom: 110px !important;
+}
+
+/* Welcome logo */
+#welcome-screen img {
+    width: 82px !important;
+    height: 82px !important;
+    max-width: 82px !important;
+    max-height: 82px !important;
+    object-fit: contain;
+}
+
+/* Any welcome/logo wrapper */
+.welcome-logo,
+.welcome-icon,
+.logo-container {
+    width: 82px !important;
+    height: 82px !important;
+    max-width: 82px !important;
+    max-height: 82px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+/* Main app layout */
+.app,
+.app-container,
+#app,
+.main-content,
+.chat-container {
+    min-height: 100dvh;
+}
+
+/* Mobile */
+@media (max-width: 700px) {
+
+    body {
+        min-height: 100dvh;
+    }
+
+    #welcome-screen {
+        padding-left: 18px !important;
+        padding-right: 18px !important;
+        padding-top: 20px !important;
+        padding-bottom: 120px !important;
+    }
+
+    #welcome-screen h1,
+    #welcome-screen h2 {
+        font-size: clamp(26px, 7vw, 38px) !important;
+        line-height: 1.15 !important;
+        margin-top: 18px !important;
+        margin-bottom: 8px !important;
+    }
+
+    #welcome-screen p {
+        font-size: 15px !important;
+        line-height: 1.5 !important;
+    }
+
+    #welcome-screen img {
+        width: 76px !important;
+        height: 76px !important;
+        max-width: 76px !important;
+        max-height: 76px !important;
+    }
+
+    .welcome-logo,
+    .welcome-icon,
+    .logo-container {
+        width: 76px !important;
+        height: 76px !important;
+        max-width: 76px !important;
+        max-height: 76px !important;
+    }
+
+    /* Stop cards/suggestions from becoming oversized */
+    .suggestion {
+        max-width: 100% !important;
+        box-sizing: border-box;
+    }
+
+    /* Keep chat messages readable */
+    .message,
+    .message-content,
+    .assistant-message,
+    .user-message {
+        max-width: 100% !important;
+        box-sizing: border-box;
+    }
+
+    /* Better mobile spacing */
+    #messages {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    /* Composer stays usable */
+    #input-controls {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+}
 /* ============================================================
    END OF VOLBY AI CSS
 ============================================================ */
