@@ -3744,7 +3744,490 @@ body {
         box-sizing: border-box !important;
     }
 }
+/* =========================================================
+   VOLBY AI — FINAL HTML LAYOUT FIX
+========================================================= */
 
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+#app {
+    width: calc(100% - 280px);
+    height: 100vh;
+    margin-left: 280px;
+
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+    min-height: 0;
+
+    overflow: hidden;
+}
+
+/* HEADER */
+
+#header {
+    width: 100%;
+    height: 68px;
+    min-height: 68px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 20px;
+
+    box-sizing: border-box;
+
+    border-bottom: 1px solid var(--border);
+    background: rgba(7, 9, 20, 0.72);
+
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+
+    z-index: 20;
+}
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    min-width: 0;
+    margin-right: auto;
+}
+
+.header-logo {
+    width: 38px;
+    height: 38px;
+
+    flex: 0 0 38px;
+
+    overflow: hidden;
+    border-radius: 11px;
+}
+
+.header-logo img {
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+}
+
+.header-brand h1 {
+    margin: 0;
+
+    font-size: 16px;
+    line-height: 1.1;
+}
+
+.header-brand span {
+    display: block;
+
+    margin-top: 3px;
+
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
+.online-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+/* CHAT */
+
+#chat {
+    flex: 1 1 auto;
+
+    min-height: 0;
+    width: 100%;
+
+    overflow: hidden;
+
+    position: relative;
+}
+
+#messages {
+    width: 100%;
+    height: 100%;
+
+    min-height: 0;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    box-sizing: border-box;
+
+    padding:
+        24px
+        clamp(16px, 4vw, 58px)
+        150px;
+}
+
+/* WELCOME */
+
+#welcome-screen {
+    width: min(760px, 100%);
+    min-height: 100%;
+
+    margin: 0 auto;
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    box-sizing: border-box;
+
+    padding: 24px 10px 90px;
+
+    text-align: center;
+}
+
+.welcome-logo {
+    width: 86px;
+    height: 86px;
+
+    flex: 0 0 86px;
+
+    margin-bottom: 20px;
+
+    overflow: hidden;
+
+    border-radius: 24px;
+
+    filter:
+        drop-shadow(
+            0 0 28px
+            rgba(124, 92, 255, 0.38)
+        );
+}
+
+.welcome-logo img {
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+
+    border-radius: inherit;
+}
+
+#welcome-screen h2 {
+    margin: 0 0 8px;
+
+    font-size: clamp(28px, 5vw, 43px);
+
+    line-height: 1.08;
+
+    letter-spacing: -1.5px;
+
+    color: var(--text-primary);
+}
+
+#welcome-screen p {
+    margin: 0;
+
+    max-width: 550px;
+
+    color: var(--text-secondary);
+
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+/* SUGGESTIONS */
+
+.suggestions {
+    width: 100%;
+    max-width: 760px;
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 10px;
+
+    margin-top: 28px;
+}
+
+.suggestion {
+    min-height: 72px;
+
+    padding: 15px;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 16px;
+
+    color: var(--text-secondary);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,.055),
+            rgba(255,255,255,.018)
+        );
+
+    text-align: left;
+
+    cursor: pointer;
+
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.suggestion:hover {
+    color: var(--text-primary);
+
+    border-color:
+        rgba(124,92,255,.42);
+
+    background:
+        rgba(124,92,255,.10);
+
+    transform: translateY(-2px);
+}
+
+/* INPUT */
+
+#input-area {
+    width: 100%;
+
+    flex: 0 0 auto;
+
+    position: relative;
+    z-index: 30;
+
+    padding:
+        8px
+        clamp(14px, 4vw, 58px)
+        12px;
+
+    background:
+        linear-gradient(
+            to top,
+            rgba(7,9,20,1),
+            rgba(7,9,20,.88),
+            transparent
+        );
+}
+
+#input-wrapper {
+    width: min(900px, 100%);
+
+    margin: 0 auto;
+
+    min-height: 54px;
+
+    display: flex;
+    align-items: flex-end;
+
+    gap: 8px;
+
+    padding:
+        8px
+        8px
+        8px
+        16px;
+
+    border:
+        1px solid
+        var(--border-bright);
+
+    border-radius: 18px;
+
+    background:
+        var(--surface-strong);
+
+    box-shadow:
+        0 18px 50px
+        rgba(0,0,0,.28);
+}
+
+#user-input {
+    width: 100%;
+    min-width: 0;
+
+    max-height: 160px;
+
+    resize: none;
+
+    border: 0;
+    outline: 0;
+
+    color: var(--text-primary);
+
+    background: transparent;
+
+    padding: 7px 0;
+
+    line-height: 1.45;
+}
+
+#input-controls {
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    flex: 0 0 auto;
+}
+
+#send-button {
+    width: 40px;
+    height: 40px;
+
+    flex: 0 0 40px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 12px;
+
+    color: white;
+
+    background:
+        linear-gradient(
+            135deg,
+            var(--accent),
+            var(--accent-dark)
+        );
+
+    cursor: pointer;
+}
+
+.disclaimer {
+    width: min(900px, 100%);
+
+    margin: 6px auto 0;
+
+    text-align: center;
+
+    color: var(--text-muted);
+
+    font-size: 9px;
+}
+
+/* MOBILE */
+
+@media (max-width: 760px) {
+
+    #app {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    #sidebar {
+        width: min(300px, 88vw);
+
+        transform: translateX(-105%);
+
+        transition:
+            transform .25s ease;
+    }
+
+    #sidebar.open {
+        transform: translateX(0);
+    }
+
+    #header {
+        height: 62px;
+        min-height: 62px;
+
+        padding: 0 10px;
+    }
+
+    #menu-button {
+        display: flex;
+    }
+
+    #header > .icon-button {
+        display: flex;
+    }
+
+    #messages {
+        padding:
+            12px
+            10px
+            125px;
+    }
+
+    #welcome-screen {
+        padding:
+            18px
+            2px
+            60px;
+    }
+
+    .welcome-logo {
+        width: 76px;
+        height: 76px;
+
+        flex-basis: 76px;
+
+        margin-bottom: 17px;
+    }
+
+    #welcome-screen h2 {
+        font-size: 30px;
+    }
+
+    #welcome-screen p {
+        font-size: 13px;
+    }
+
+    .suggestions {
+        grid-template-columns: 1fr;
+
+        gap: 8px;
+
+        margin-top: 22px;
+    }
+
+    .suggestion {
+        min-height: 56px;
+    }
+
+    #input-area {
+        padding:
+            6px
+            8px
+            9px;
+    }
+
+    #input-wrapper {
+        min-height: 50px;
+
+        padding-left: 12px;
+
+        border-radius: 16px;
+    }
+
+    #character-count {
+        display: none;
+    }
+
+    .disclaimer {
+        font-size: 8px;
+    }
+}
 /* ============================================================
    END OF VOLBY AI CSS
 ============================================================ */
