@@ -1,32 +1,47 @@
 /* ============================================================
-   VOLBY AI — NEW FRONTEND
-   script.js — CHUNK 1/6
+   VOLBY AI
+   script.js — CHUNK 1/3
 ============================================================ */
+
+"use strict";
 
 
 /* ================= CONFIG ================= */
 
-const VOLBY_CONFIG = {
+const CONFIG = {
 
-    /* Your existing Volby backend */
     API_URL:
         "https://volby-ai-backend.onrender.com",
 
-    /* Default model */
-    DEFAULT_MODEL:
-        "volby",
-
-    /* Storage keys */
-    STORAGE_HISTORY:
+    HISTORY_KEY:
         "volby_chat_history",
 
-    STORAGE_THEME:
+    THEME_KEY:
         "volby_theme",
 
-    STORAGE_MODEL:
+    MODEL_KEY:
         "volby_model"
 
 };
+
+
+/* ================= MODELS ================= */
+
+const MODELS = [
+
+    {
+        id: "groq",
+        name: "Groq",
+        description: "Groq Compound"
+    },
+
+    {
+        id: "openrouter",
+        name: "OpenRouter",
+        description: "GPT-OSS 120B"
+    }
+
+];
 
 
 /* ================= STATE ================= */
@@ -39,15 +54,12 @@ const state = {
 
     selectedModel:
         localStorage.getItem(
-            VOLBY_CONFIG.STORAGE_MODEL
-        ) ||
-        VOLBY_CONFIG.DEFAULT_MODEL,
+            CONFIG.MODEL_KEY
+        ) || "groq",
 
-    isGenerating: false,
+    generating: false,
 
-    sidebarOpen: false,
-
-    modelMenuOpen: false
+    sidebarOpen: false
 
 };
 
@@ -56,20 +68,20 @@ const state = {
 
 const DOM = {};
 
+
 function cacheDOM() {
 
-    DOM.app =
-        document.getElementById("app");
-
     DOM.sidebar =
-        document.getElementById("sidebar");
+        document.getElementById(
+            "sidebar"
+        );
 
     DOM.overlay =
         document.getElementById(
             "sidebar-overlay"
         );
 
-    DOM.menuButton =
+    DOM.menu =
         document.getElementById(
             "menu-button"
         );
@@ -89,7 +101,7 @@ function cacheDOM() {
             "top-new-chat"
         );
 
-    DOM.historyList =
+    DOM.history =
         document.getElementById(
             "history-list"
         );
@@ -109,6 +121,11 @@ function cacheDOM() {
             "suggestions"
         );
 
+    DOM.chat =
+        document.getElementById(
+            "chat"
+        );
+
     DOM.messages =
         document.getElementById(
             "messages"
@@ -124,12 +141,12 @@ function cacheDOM() {
             "send-button"
         );
 
-    DOM.inputControls =
+    DOM.controls =
         document.getElementById(
             "input-controls"
         );
 
-    DOM.characterCount =
+    DOM.count =
         document.getElementById(
             "character-count"
         );
@@ -152,86 +169,66 @@ function cacheDOM() {
 }
 
 
-/* ================= INITIALIZATION ================= */
+/* ================= START ================= */
 
-function initVolby() {
+function init() {
 
     cacheDOM();
 
     loadTheme();
 
-    loadModel();
-
     loadHistory();
-
-    bindEvents();
 
     createModelSelector();
 
-    startNewConversation();
+    bindEvents();
 
-    updateCharacterCount();
+    renderHistory();
 
-    updateSendButton();
+    newChat();
 
-}
-
-
-/* ================= START ================= */
-
-if (
-    document.readyState ===
-    "loading"
-) {
-
-    document.addEventListener(
-        "DOMContentLoaded",
-        initVolby,
-        { once: true }
-    );
-
-} else {
-
-    initVolby();
+    updateInput();
 
 }
-/* ============================================================
-   CHUNK 2/6
-   THEMES + SIDEBAR + ABOUT MODAL
-============================================================ */
 
 
-/* ================= THEMES ================= */
+/* ================= THEME ================= */
 
 const THEMES = [
+
     "blue",
     "midnight",
     "snow",
     "purple",
     "ocean",
     "sunset"
+
 ];
 
 
 function loadTheme() {
 
-    let theme =
+    const saved =
         localStorage.getItem(
-            VOLBY_CONFIG.STORAGE_THEME
+            CONFIG.THEME_KEY
         );
 
-    if (!THEMES.includes(theme)) {
-        theme = "blue";
-    }
+    const theme =
+        THEMES.includes(saved)
+            ? saved
+            : "blue";
 
     document.body.dataset.theme =
         theme;
+
 }
 
 
 function setTheme(theme) {
 
-    if (!THEMES.includes(theme)) {
+    if (
+        !THEMES.includes(theme)
+    ) {
         return;
     }
 
@@ -239,96 +236,10 @@ function setTheme(theme) {
         theme;
 
     localStorage.setItem(
-        VOLBY_CONFIG.STORAGE_THEME,
+        CONFIG.THEME_KEY,
         theme
     );
-}
 
-
-/* ================= THEME BUTTONS ================= */
-
-/*
-   Creates the six theme controls in the
-   sidebar without requiring extra HTML.
-*/
-
-function createThemeControls() {
-
-    const footer =
-        document.querySelector(
-            ".sidebar-bottom"
-        );
-
-    if (!footer) {
-        return;
-    }
-
-    if (
-        document.getElementById(
-            "theme-controls"
-        )
-    ) {
-        return;
-    }
-
-    const wrapper =
-        document.createElement("div");
-
-    wrapper.id =
-        "theme-controls";
-
-    wrapper.style.display =
-        "flex";
-
-    wrapper.style.gap =
-        "7px";
-
-    wrapper.style.padding =
-        "0 4px 10px";
-
-    THEMES.forEach(theme => {
-
-        const button =
-            document.createElement("button");
-
-        button.type =
-            "button";
-
-        button.dataset.theme =
-            theme;
-
-        button.title =
-            theme.charAt(0).toUpperCase() +
-            theme.slice(1);
-
-        button.style.width =
-            "24px";
-
-        button.style.height =
-            "24px";
-
-        button.style.borderRadius =
-            "50%";
-
-        button.style.border =
-            "2px solid transparent";
-
-        button.style.cursor =
-            "pointer";
-
-        button.style.background =
-            "var(--accent)";
-
-        button.addEventListener(
-            "click",
-            () => setTheme(theme)
-        );
-
-        wrapper.appendChild(button);
-
-    });
-
-    footer.prepend(wrapper);
 }
 
 
@@ -336,18 +247,13 @@ function createThemeControls() {
 
 function openSidebar() {
 
-    if (!DOM.sidebar) {
-        return;
-    }
+    state.sidebarOpen = true;
 
-    state.sidebarOpen =
-        true;
-
-    DOM.sidebar.classList.add(
+    DOM.sidebar?.classList.add(
         "open"
     );
 
-    DOM.overlay.classList.add(
+    DOM.overlay?.classList.add(
         "active"
     );
 
@@ -356,18 +262,13 @@ function openSidebar() {
 
 function closeSidebar() {
 
-    if (!DOM.sidebar) {
-        return;
-    }
+    state.sidebarOpen = false;
 
-    state.sidebarOpen =
-        false;
-
-    DOM.sidebar.classList.remove(
+    DOM.sidebar?.classList.remove(
         "open"
     );
 
-    DOM.overlay.classList.remove(
+    DOM.overlay?.classList.remove(
         "active"
     );
 
@@ -378,15 +279,11 @@ function closeSidebar() {
 
 function openAbout() {
 
-    if (!DOM.aboutModal) {
-        return;
-    }
-
-    DOM.aboutModal.classList.add(
+    DOM.aboutModal?.classList.add(
         "open"
     );
 
-    DOM.aboutModal.setAttribute(
+    DOM.aboutModal?.setAttribute(
         "aria-hidden",
         "false"
     );
@@ -396,15 +293,11 @@ function openAbout() {
 
 function closeAbout() {
 
-    if (!DOM.aboutModal) {
-        return;
-    }
-
-    DOM.aboutModal.classList.remove(
+    DOM.aboutModal?.classList.remove(
         "open"
     );
 
-    DOM.aboutModal.setAttribute(
+    DOM.aboutModal?.setAttribute(
         "aria-hidden",
         "true"
     );
@@ -412,11 +305,11 @@ function closeAbout() {
 }
 
 
-/* ================= EVENT BINDING ================= */
+/* ================= EVENTS ================= */
 
 function bindEvents() {
 
-    DOM.menuButton?.addEventListener(
+    DOM.menu?.addEventListener(
         "click",
         openSidebar
     );
@@ -451,11 +344,85 @@ function bindEvents() {
                 event.target ===
                 DOM.aboutModal
             ) {
+
                 closeAbout();
+
             }
 
         }
     );
+
+
+    DOM.newChat?.addEventListener(
+        "click",
+        newChat
+    );
+
+    DOM.topNewChat?.addEventListener(
+        "click",
+        newChat
+    );
+
+
+    DOM.input?.addEventListener(
+        "input",
+        updateInput
+    );
+
+
+    DOM.input?.addEventListener(
+        "keydown",
+        event => {
+
+            if (
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
+
+                event.preventDefault();
+
+                sendMessage();
+
+            }
+
+        }
+    );
+
+
+    DOM.send?.addEventListener(
+        "click",
+        sendMessage
+    );
+
+
+    DOM.suggestions
+        ?.querySelectorAll(
+            ".suggestion"
+        )
+        .forEach(button => {
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    const prompt =
+                        button.dataset.prompt;
+
+                    if (!prompt) {
+                        return;
+                    }
+
+                    DOM.input.value =
+                        prompt;
+
+                    updateInput();
+
+                    sendMessage();
+
+                }
+            );
+
+        });
 
 
     document.addEventListener(
@@ -463,11 +430,11 @@ function bindEvents() {
         event => {
 
             if (
-                event.key ===
-                "Escape"
+                event.key === "Escape"
             ) {
 
                 closeSidebar();
+
                 closeAbout();
 
             }
@@ -475,108 +442,74 @@ function bindEvents() {
         }
     );
 
-
-    createThemeControls();
-
-}
-/* ============================================================
-   CHUNK 3/6
-   MODEL SELECTOR + INPUT CONTROLS
-============================================================ */
-
-
-/* ================= MODELS ================= */
-
-const MODELS = [
-    {
-        id: "volby",
-        name: "Volby",
-        description: "Volby AI"
-    },
-    {
-        id: "gpt",
-        name: "GPT",
-        description: "GPT model"
-    },
-    {
-        id: "claude",
-        name: "Claude",
-        description: "Claude model"
-    },
-    {
-        id: "gemini",
-        name: "Gemini",
-        description: "Gemini model"
-    }
-];
-
-
-/* ================= LOAD MODEL ================= */
-
-function loadModel() {
-
-    const saved =
-        localStorage.getItem(
-            VOLBY_CONFIG.STORAGE_MODEL
-        );
-
-    if (
-        saved &&
-        MODELS.some(
-            model => model.id === saved
-        )
-    ) {
-        state.selectedModel = saved;
-    }
-
 }
 
 
-/* ================= SAVE MODEL ================= */
+/* ================= INPUT ================= */
 
-function selectModel(modelId) {
+function updateInput() {
 
-    const model =
-        MODELS.find(
-            item => item.id === modelId
-        );
-
-    if (!model) {
+    if (!DOM.input) {
         return;
     }
 
-    state.selectedModel =
-        model.id;
+    const length =
+        DOM.input.value.length;
 
-    localStorage.setItem(
-        VOLBY_CONFIG.STORAGE_MODEL,
-        model.id
-    );
 
-    updateModelButton();
+    if (DOM.count) {
 
-    closeModelMenu();
+        DOM.count.textContent =
+            `${length.toLocaleString()} / 10,000`;
+
+    }
+
+
+    DOM.send.disabled =
+        !DOM.input.value.trim() ||
+        state.generating;
+
+
+    DOM.input.style.height =
+        "auto";
+
+
+    DOM.input.style.height =
+        Math.min(
+            DOM.input.scrollHeight,
+            180
+        ) + "px";
+
 }
+/* ============================================================
+   CHUNK 2/3
+   MODEL + HISTORY + CHAT RENDERING
+============================================================ */
 
 
 /* ================= MODEL SELECTOR ================= */
 
 function createModelSelector() {
 
-    if (!DOM.inputControls) {
+    if (!DOM.controls) {
         return;
     }
 
-    if (
+
+    const old =
         document.getElementById(
             "model-selector"
-        )
-    ) {
-        return;
+        );
+
+    if (old) {
+        old.remove();
     }
 
+
     const wrapper =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     wrapper.id =
         "model-selector";
@@ -586,7 +519,9 @@ function createModelSelector() {
 
 
     const button =
-        document.createElement("button");
+        document.createElement(
+            "button"
+        );
 
     button.type =
         "button";
@@ -599,7 +534,9 @@ function createModelSelector() {
 
 
     const menu =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     menu.className =
         "model-menu";
@@ -611,7 +548,9 @@ function createModelSelector() {
     MODELS.forEach(model => {
 
         const option =
-            document.createElement("button");
+            document.createElement(
+                "button"
+            );
 
         option.type =
             "button";
@@ -624,9 +563,13 @@ function createModelSelector() {
 
 
         option.innerHTML = `
-            <span class="model-option-icon">✦</span>
+
+            <span class="model-option-icon">
+                ✦
+            </span>
 
             <span class="model-option-info">
+
                 <span class="model-option-name">
                     ${escapeHTML(model.name)}
                 </span>
@@ -634,21 +577,39 @@ function createModelSelector() {
                 <span class="model-option-description">
                     ${escapeHTML(model.description)}
                 </span>
+
             </span>
 
-            <span
-                class="model-option-check"
-            ></span>
+            <span class="model-option-check"></span>
+
         `;
 
 
         option.addEventListener(
             "click",
-            () => selectModel(model.id)
+            () => {
+
+                state.selectedModel =
+                    model.id;
+
+                localStorage.setItem(
+                    CONFIG.MODEL_KEY,
+                    model.id
+                );
+
+                updateModelSelector();
+
+                menu.classList.remove(
+                    "open"
+                );
+
+            }
         );
 
 
-        menu.appendChild(option);
+        menu.appendChild(
+            option
+        );
 
     });
 
@@ -659,23 +620,29 @@ function createModelSelector() {
 
             event.stopPropagation();
 
-            toggleModelMenu();
+            menu.classList.toggle(
+                "open"
+            );
 
         }
     );
 
 
-    wrapper.appendChild(button);
+    wrapper.appendChild(
+        button
+    );
 
-    wrapper.appendChild(menu);
+    wrapper.appendChild(
+        menu
+    );
 
 
-    DOM.inputControls.prepend(
+    DOM.controls.prepend(
         wrapper
     );
 
 
-    updateModelButton();
+    updateModelSelector();
 
 
     document.addEventListener(
@@ -687,7 +654,11 @@ function createModelSelector() {
                     event.target
                 )
             ) {
-                closeModelMenu();
+
+                menu.classList.remove(
+                    "open"
+                );
+
             }
 
         }
@@ -696,32 +667,37 @@ function createModelSelector() {
 }
 
 
-/* ================= MODEL BUTTON ================= */
-
-function updateModelButton() {
+function updateModelSelector() {
 
     const button =
         document.getElementById(
             "model-button"
         );
 
+
     if (!button) {
         return;
     }
+
 
     const model =
         MODELS.find(
             item =>
                 item.id ===
                 state.selectedModel
-        ) ||
-        MODELS[0];
+        ) || MODELS[0];
 
 
     button.innerHTML = `
+
         <span>✦</span>
-        <span>${escapeHTML(model.name)}</span>
+
+        <span>
+            ${escapeHTML(model.name)}
+        </span>
+
         <span>⌄</span>
+
     `;
 
 
@@ -735,19 +711,26 @@ function updateModelButton() {
                 option.dataset.model ===
                 state.selectedModel;
 
+
             option.classList.toggle(
                 "active",
                 active
             );
+
 
             const check =
                 option.querySelector(
                     ".model-option-check"
                 );
 
+
             if (check) {
+
                 check.textContent =
-                    active ? "✓" : "";
+                    active
+                        ? "✓"
+                        : "";
+
             }
 
         });
@@ -755,148 +738,537 @@ function updateModelButton() {
 }
 
 
-/* ================= MODEL MENU ================= */
+/* ================= HISTORY ================= */
 
-function toggleModelMenu() {
+function loadHistory() {
 
-    const menu =
-        document.getElementById(
-            "model-menu"
-        );
+    try {
 
-    if (!menu) {
-        return;
-    }
-
-    state.modelMenuOpen =
-        !state.modelMenuOpen;
-
-    menu.classList.toggle(
-        "open",
-        state.modelMenuOpen
-    );
-
-}
+        const saved =
+            localStorage.getItem(
+                CONFIG.HISTORY_KEY
+            );
 
 
-function closeModelMenu() {
-
-    const menu =
-        document.getElementById(
-            "model-menu"
-        );
-
-    if (!menu) {
-        return;
-    }
-
-    state.modelMenuOpen =
-        false;
-
-    menu.classList.remove(
-        "open"
-    );
-
-}
+        state.conversations =
+            saved
+                ? JSON.parse(saved)
+                : [];
 
 
-/* ================= INPUT ================= */
+        if (
+            !Array.isArray(
+                state.conversations
+            )
+        ) {
 
-function updateCharacterCount() {
-
-    if (!DOM.input) {
-        return;
-    }
-
-    const length =
-        DOM.input.value.length;
-
-    if (DOM.characterCount) {
-
-        DOM.characterCount.textContent =
-            `${length.toLocaleString()} / 10,000`;
-
-    }
-
-}
-
-
-function updateSendButton() {
-
-    if (!DOM.send || !DOM.input) {
-        return;
-    }
-
-    const hasText =
-        DOM.input.value.trim().length > 0;
-
-    DOM.send.disabled =
-        !hasText ||
-        state.isGenerating;
-
-}
-
-
-function autoResizeInput() {
-
-    if (!DOM.input) {
-        return;
-    }
-
-    DOM.input.style.height =
-        "auto";
-
-    const height =
-        Math.min(
-            DOM.input.scrollHeight,
-            180
-        );
-
-    DOM.input.style.height =
-        `${height}px`;
-
-}
-
-
-/* ================= INPUT EVENTS ================= */
-
-function bindInputEvents() {
-
-    if (!DOM.input) {
-        return;
-    }
-
-
-    DOM.input.addEventListener(
-        "input",
-        () => {
-
-            updateCharacterCount();
-
-            updateSendButton();
-
-            autoResizeInput();
+            state.conversations = [];
 
         }
+
+    } catch {
+
+        state.conversations = [];
+
+    }
+
+}
+
+
+function saveHistory() {
+
+    localStorage.setItem(
+
+        CONFIG.HISTORY_KEY,
+
+        JSON.stringify(
+            state.conversations
+        )
+
+    );
+
+}
+
+
+/* ================= NEW CHAT ================= */
+
+function newChat() {
+
+    state.currentConversation = {
+
+        id:
+            Date.now().toString(),
+
+        title:
+            "New chat",
+
+        messages: [],
+
+        updatedAt:
+            Date.now()
+
+    };
+
+
+    DOM.messages.innerHTML =
+        "";
+
+    DOM.welcome.style.display =
+        "flex";
+
+
+    closeSidebar();
+
+    renderHistory();
+
+    updateInput();
+
+}
+
+
+/* ================= SAVE CURRENT ================= */
+
+function saveCurrentConversation() {
+
+    const current =
+        state.currentConversation;
+
+
+    if (!current) {
+        return;
+    }
+
+
+    const index =
+        state.conversations.findIndex(
+            item =>
+                item.id ===
+                current.id
+        );
+
+
+    if (index >= 0) {
+
+        state.conversations[index] =
+            current;
+
+    } else {
+
+        state.conversations.unshift(
+            current
+        );
+
+    }
+
+
+    state.conversations =
+        state.conversations.slice(
+            0,
+            50
+        );
+
+
+    saveHistory();
+
+    renderHistory();
+
+}
+
+
+/* ================= HISTORY UI ================= */
+
+function renderHistory() {
+
+    if (!DOM.history) {
+        return;
+    }
+
+
+    DOM.history.innerHTML =
+        "";
+
+
+    const chats =
+        state.conversations.filter(
+            chat =>
+                chat.messages &&
+                chat.messages.length
+        );
+
+
+    if (!chats.length) {
+
+        DOM.emptyHistory.style.display =
+            "block";
+
+        return;
+
+    }
+
+
+    DOM.emptyHistory.style.display =
+        "none";
+
+
+    chats.forEach(chat => {
+
+        const button =
+            document.createElement(
+                "button"
+            );
+
+
+        button.type =
+            "button";
+
+        button.className =
+            "history-item";
+
+
+        if (
+            state.currentConversation &&
+            chat.id ===
+                state.currentConversation.id
+        ) {
+
+            button.classList.add(
+                "active"
+            );
+
+        }
+
+
+        button.textContent =
+            chat.title ||
+            "New chat";
+
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                openConversation(
+                    chat.id
+                );
+
+            }
+        );
+
+
+        DOM.history.appendChild(
+            button
+        );
+
+    });
+
+}
+
+
+/* ================= OPEN CONVERSATION ================= */
+
+function openConversation(id) {
+
+    const conversation =
+        state.conversations.find(
+            chat =>
+                chat.id === id
+        );
+
+
+    if (!conversation) {
+        return;
+    }
+
+
+    state.currentConversation =
+        conversation;
+
+
+    DOM.messages.innerHTML =
+        "";
+
+
+    DOM.welcome.style.display =
+        conversation.messages.length
+            ? "none"
+            : "flex";
+
+
+    conversation.messages
+        .forEach(message => {
+
+            renderMessage(
+                message.role,
+                message.content
+            );
+
+        });
+
+
+    renderHistory();
+
+    closeSidebar();
+
+    scrollToBottom();
+
+}
+
+
+/* ================= ADD MESSAGE ================= */
+
+function addMessage(
+    role,
+    content
+) {
+
+    if (
+        !state.currentConversation
+    ) {
+
+        newChat();
+
+    }
+
+
+    state.currentConversation.messages
+        .push({
+
+            role:
+                role,
+
+            content:
+                content,
+
+            timestamp:
+                Date.now()
+
+        });
+
+
+    state.currentConversation.updatedAt =
+        Date.now();
+
+
+    if (
+        role === "user" &&
+        state.currentConversation.title ===
+            "New chat"
+    ) {
+
+        const title =
+            content.trim();
+
+
+        state.currentConversation.title =
+            title.length > 40
+                ? title.slice(0, 40) + "…"
+                : title;
+
+    }
+
+
+    saveCurrentConversation();
+
+}
+
+
+/* ================= MESSAGE RENDER ================= */
+
+function renderMessage(
+    role,
+    content
+) {
+
+    const row =
+        document.createElement(
+            "div"
+        );
+
+    row.className =
+        `message ${role}`;
+
+
+    const wrapper =
+        document.createElement(
+            "div"
+        );
+
+    wrapper.className =
+        "message-content";
+
+
+    const label =
+        document.createElement(
+            "div"
+        );
+
+    label.className =
+        "message-role";
+
+    label.textContent =
+        role === "user"
+            ? "You"
+            : "Volby";
+
+
+    const bubble =
+        document.createElement(
+            "div"
+        );
+
+    bubble.className =
+        "message-bubble";
+
+
+    bubble.innerHTML =
+        formatMessage(
+            content
+        );
+
+
+    wrapper.appendChild(
+        label
+    );
+
+    wrapper.appendChild(
+        bubble
     );
 
 
-    DOM.input.addEventListener(
-        "keydown",
-        event => {
+    if (
+        role === "assistant"
+    ) {
 
-            if (
-                event.key === "Enter" &&
-                !event.shiftKey
-            ) {
+        wrapper.appendChild(
+            createActions(
+                content
+            )
+        );
 
-                event.preventDefault();
+    }
 
-                if (
-                    !DOM.send.disabled
-                ) {
-                    sendMessage();
-                }
+
+    row.appendChild(
+        wrapper
+    );
+
+
+    DOM.messages.appendChild(
+        row
+    );
+
+
+    return row;
+
+}
+
+
+/* ================= FORMAT ================= */
+
+function formatMessage(text) {
+
+    let value =
+        escapeHTML(
+            text || ""
+        );
+
+
+    value =
+        value.replace(
+            /```([\s\S]*?)```/g,
+            "<pre><code>$1</code></pre>"
+        );
+
+
+    value =
+        value.replace(
+            /\*\*(.*?)\*\*/g,
+            "<strong>$1</strong>"
+        );
+
+
+    value =
+        value.replace(
+            /`([^`]+)`/g,
+            "<code>$1</code>"
+        );
+
+
+    value =
+        value.replace(
+            /\n/g,
+            "<br>"
+        );
+
+
+    return value;
+
+}
+
+
+/* ================= ACTIONS ================= */
+
+function createActions(
+    content
+) {
+
+    const actions =
+        document.createElement(
+            "div"
+        );
+
+    actions.className =
+        "message-actions";
+
+
+    const copy =
+        document.createElement(
+            "button"
+        );
+
+    copy.type =
+        "button";
+
+    copy.className =
+        "message-action";
+
+    copy.textContent =
+        "⧉";
+
+    copy.title =
+        "Copy";
+
+
+    copy.addEventListener(
+        "click",
+        async () => {
+
+            try {
+
+                await navigator.clipboard
+                    .writeText(
+                        content
+                    );
+
+                copy.textContent =
+                    "✓";
+
+
+                setTimeout(
+                    () => {
+
+                        copy.textContent =
+                            "⧉";
+
+                    },
+                    1000
+                );
+
+            } catch {
+
+                alert(
+                    "Copy is not available."
+                );
 
             }
 
@@ -904,15 +1276,45 @@ function bindInputEvents() {
     );
 
 
-    DOM.send?.addEventListener(
+    const regenerate =
+        document.createElement(
+            "button"
+        );
+
+    regenerate.type =
+        "button";
+
+    regenerate.className =
+        "message-action";
+
+    regenerate.textContent =
+        "↻";
+
+    regenerate.title =
+        "Regenerate";
+
+
+    regenerate.addEventListener(
         "click",
-        sendMessage
+        regenerateResponse
     );
+
+
+    actions.appendChild(
+        copy
+    );
+
+    actions.appendChild(
+        regenerate
+    );
+
+
+    return actions;
 
 }
 
 
-/* ================= ESCAPE HTML ================= */
+/* ================= HELPERS ================= */
 
 function escapeHTML(value) {
 
@@ -939,780 +1341,28 @@ function escapeHTML(value) {
         );
 
 }
-/* ============================================================
-   CHUNK 4/6
-   CONVERSATIONS + HISTORY + NEW CHAT + SUGGESTIONS
-============================================================ */
 
 
-/* ================= ID ================= */
+function scrollToBottom() {
 
-function createId() {
-
-    return (
-        Date.now().toString(36) +
-        Math.random()
-            .toString(36)
-            .slice(2, 8)
-    );
-
-}
-
-
-/* ================= NEW CONVERSATION ================= */
-
-function startNewConversation() {
-
-    state.currentConversation = {
-
-        id: createId(),
-
-        title: "New chat",
-
-        messages: [],
-
-        createdAt:
-            Date.now(),
-
-        updatedAt:
-            Date.now()
-
-    };
-
-
-    DOM.messages.innerHTML = "";
-
-    DOM.welcome.style.display =
-        "flex";
-
-    closeSidebar();
-
-    updateHistoryUI();
-
-    updateSendButton();
-
-}
-
-
-/* ================= ADD MESSAGE ================= */
-
-function addMessage(
-    role,
-    content
-) {
-
-    if (
-        !state.currentConversation
-    ) {
-        startNewConversation();
-    }
-
-
-    state.currentConversation.messages.push({
-
-        role,
-
-        content,
-
-        timestamp:
-            Date.now()
-
-    });
-
-
-    state.currentConversation.updatedAt =
-        Date.now();
-
-
-    if (
-        role === "user" &&
-        state.currentConversation.title ===
-            "New chat"
-    ) {
-
-        const clean =
-            content.trim();
-
-        state.currentConversation.title =
-            clean.length > 38
-                ? clean.slice(0, 38) + "…"
-                : clean;
-
-    }
-
-
-    saveCurrentConversation();
-
-}
-
-
-/* ================= SAVE ================= */
-
-function saveCurrentConversation() {
-
-    if (
-        !state.currentConversation
-    ) {
-        return;
-    }
-
-
-    const index =
-        state.conversations.findIndex(
-            item =>
-                item.id ===
-                state.currentConversation.id
-        );
-
-
-    if (index === -1) {
-
-        state.conversations.unshift(
-            state.currentConversation
-        );
-
-    } else {
-
-        state.conversations[index] =
-            state.currentConversation;
-
-    }
-
-
-    state.conversations =
-        state.conversations
-            .slice(0, 50);
-
-
-    localStorage.setItem(
-
-        VOLBY_CONFIG.STORAGE_HISTORY,
-
-        JSON.stringify(
-            state.conversations
-        )
-
-    );
-
-
-    updateHistoryUI();
-
-}
-
-
-/* ================= LOAD HISTORY ================= */
-
-function loadHistory() {
-
-    try {
-
-        const saved =
-            localStorage.getItem(
-                VOLBY_CONFIG.STORAGE_HISTORY
-            );
-
-
-        if (!saved) {
-            state.conversations = [];
-            return;
-        }
-
-
-        const parsed =
-            JSON.parse(saved);
-
-
-        if (
-            Array.isArray(parsed)
-        ) {
-
-            state.conversations =
-                parsed;
-
-        } else {
-
-            state.conversations =
-                [];
-
-        }
-
-    } catch (error) {
-
-        console.error(
-            "Could not load chat history:",
-            error
-        );
-
-        state.conversations = [];
-
-    }
-
-}
-
-
-/* ================= HISTORY UI ================= */
-
-function updateHistoryUI() {
-
-    if (
-        !DOM.historyList ||
-        !DOM.emptyHistory
-    ) {
-        return;
-    }
-
-
-    DOM.historyList.innerHTML = "";
-
-
-    if (
-        state.conversations.length === 0
-    ) {
-
-        DOM.emptyHistory.style.display =
-            "block";
-
-        return;
-
-    }
-
-
-    DOM.emptyHistory.style.display =
-        "none";
-
-
-    state.conversations
-        .forEach(conversation => {
-
-            const button =
-                document.createElement(
-                    "button"
-                );
-
-
-            button.type =
-                "button";
-
-            button.className =
-                "history-item";
-
-
-            if (
-                state.currentConversation &&
-                conversation.id ===
-                    state.currentConversation.id
-            ) {
-
-                button.classList.add(
-                    "active"
-                );
-
-            }
-
-
-            button.textContent =
-                conversation.title ||
-                "New chat";
-
-
-            button.addEventListener(
-                "click",
-                () => {
-
-                    openConversation(
-                        conversation.id
-                    );
-
-                }
-            );
-
-
-            DOM.historyList.appendChild(
-                button
-            );
-
-        });
-
-}
-
-
-/* ================= OPEN CHAT ================= */
-
-function openConversation(id) {
-
-    const conversation =
-        state.conversations.find(
-            item =>
-                item.id === id
-        );
-
-
-    if (!conversation) {
-        return;
-    }
-
-
-    state.currentConversation =
-        conversation;
-
-
-    DOM.messages.innerHTML = "";
-
-
-    DOM.welcome.style.display =
-        conversation.messages.length
-            ? "none"
-            : "flex";
-
-
-    conversation.messages
-        .forEach(message => {
-
-            renderMessage(
-                message.role,
-                message.content
-            );
-
-        });
-
-
-    updateHistoryUI();
-
-    closeSidebar();
-
-    scrollToBottom();
-
-}
-
-
-/* ================= DELETE EMPTY CHAT ================= */
-
-function removeEmptyCurrentChat() {
-
-    if (
-        !state.currentConversation
-    ) {
-        return;
-    }
-
-
-    if (
-        state.currentConversation.messages
-            .length > 0
-    ) {
-        return;
-    }
-
-
-    state.conversations =
-        state.conversations.filter(
-            item =>
-                item.id !==
-                state.currentConversation.id
-        );
-
-
-    localStorage.setItem(
-
-        VOLBY_CONFIG.STORAGE_HISTORY,
-
-        JSON.stringify(
-            state.conversations
-        )
-
-    );
-
-}
-
-
-/* ================= SUGGESTIONS ================= */
-
-function bindSuggestions() {
-
-    if (!DOM.suggestions) {
-        return;
-    }
-
-
-    DOM.suggestions
-        .querySelectorAll(
-            ".suggestion"
-        )
-        .forEach(button => {
-
-            button.addEventListener(
-                "click",
-                () => {
-
-                    const prompt =
-                        button.dataset.prompt ||
-                        "";
-
-                    if (!prompt) {
-                        return;
-                    }
-
-
-                    DOM.input.value =
-                        prompt;
-
-
-                    updateCharacterCount();
-
-                    autoResizeInput();
-
-                    updateSendButton();
-
-                    sendMessage();
-
-                }
-            );
-
-        });
-
-}
-
-
-/* ================= NEW CHAT EVENTS ================= */
-
-function bindNewChatEvents() {
-
-    DOM.newChat?.addEventListener(
-        "click",
-        startNewConversation
-    );
-
-
-    DOM.topNewChat?.addEventListener(
-        "click",
-        startNewConversation
-    );
-
-}
-/* ============================================================
-   CHUNK 5/6
-   MESSAGE RENDERING + TYPING + ACTIONS
-============================================================ */
-
-
-/* ================= RENDER MESSAGE ================= */
-
-function renderMessage(
-    role,
-    content
-) {
-
-    const row =
-        document.createElement("div");
-
-    row.className =
-        `message ${role}`;
-
-
-    const wrapper =
-        document.createElement("div");
-
-    wrapper.className =
-        "message-content";
-
-
-    const roleLabel =
-        document.createElement("div");
-
-    roleLabel.className =
-        "message-role";
-
-
-    roleLabel.textContent =
-        role === "user"
-            ? "You"
-            : "Volby";
-
-
-    const bubble =
-        document.createElement("div");
-
-    bubble.className =
-        "message-bubble";
-
-
-    bubble.innerHTML =
-        formatMessage(content);
-
-
-    wrapper.appendChild(
-        roleLabel
-    );
-
-    wrapper.appendChild(
-        bubble
-    );
-
-
-    if (
-        role === "assistant"
-    ) {
-
-        const actions =
-            createMessageActions(
-                content
-            );
-
-        wrapper.appendChild(
-            actions
-        );
-
-    }
-
-
-    row.appendChild(
-        wrapper
-    );
-
-
-    DOM.messages.appendChild(
-        row
-    );
-
-
-    return row;
-
-}
-
-
-/* ================= FORMAT MESSAGE ================= */
-
-function formatMessage(content) {
-
-    if (
-        content === null ||
-        content === undefined
-    ) {
-        return "";
-    }
-
-
-    let text =
-        String(content);
-
-
-    const codeBlocks = [];
-
-
-    /*
-       Temporarily protect fenced code.
-    */
-
-    text =
-        text.replace(
-            /```([\w+-]*)\n?([\s\S]*?)```/g,
-            (
-                match,
-                language,
-                code
-            ) => {
-
-                const index =
-                    codeBlocks.length;
-
-
-                codeBlocks.push({
-
-                    language:
-                        language || "",
-
-                    code:
-                        code.trim()
-
-                });
-
-
-                return `@@CODE_${index}@@`;
-
-            }
-        );
-
-
-    text =
-        escapeHTML(text);
-
-
-    /*
-       Basic markdown-like formatting.
-    */
-
-    text =
-        text.replace(
-            /\*\*(.+?)\*\*/g,
-            "<strong>$1</strong>"
-        );
-
-
-    text =
-        text.replace(
-            /`([^`\n]+)`/g,
-            "<code>$1</code>"
-        );
-
-
-    text =
-        text.replace(
-            /\n/g,
-            "<br>"
-        );
-
-
-    /*
-       Restore code blocks.
-    */
-
-    codeBlocks.forEach(
-        (block, index) => {
-
-            const language =
-                escapeHTML(
-                    block.language
-                );
-
-
-            const code =
-                escapeHTML(
-                    block.code
-                );
-
-
-            const html = `
-                <pre>
-                    <code
-                        data-language="${language}"
-                    >${code}</code>
-                </pre>
-            `;
-
-
-            text =
-                text.replace(
-                    `@@CODE_${index}@@`,
-                    html
-                );
-
-        }
-    );
-
-
-    return text;
-
-}
-
-
-/* ================= MESSAGE ACTIONS ================= */
-
-function createMessageActions(
-    content
-) {
-
-    const actions =
-        document.createElement("div");
-
-    actions.className =
-        "message-actions";
-
-
-    const copy =
-        document.createElement("button");
-
-    copy.type =
-        "button";
-
-    copy.className =
-        "message-action";
-
-    copy.title =
-        "Copy";
-
-    copy.textContent =
-        "⧉";
-
-
-    copy.addEventListener(
-        "click",
-        async () => {
-
-            try {
-
-                await navigator.clipboard
-                    .writeText(
-                        content
-                    );
-
-                copy.textContent =
-                    "✓";
-
-
-                setTimeout(
-                    () => {
-
-                        copy.textContent =
-                            "⧉";
-
-                    },
-                    1200
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Copy failed:",
-                    error
-                );
-
-            }
-
-        }
-    );
-
-
-    const regenerate =
-        document.createElement("button");
-
-    regenerate.type =
-        "button";
-
-    regenerate.className =
-        "message-action";
-
-    regenerate.title =
-        "Regenerate";
-
-    regenerate.textContent =
-        "↻";
-
-
-    regenerate.addEventListener(
-        "click",
+    requestAnimationFrame(
         () => {
 
-            regenerateLastResponse();
+            DOM.chat.scrollTop =
+                DOM.chat.scrollHeight;
 
         }
     );
 
-
-    actions.appendChild(
-        copy
-    );
-
-    actions.appendChild(
-        regenerate
-    );
-
-
-    return actions;
-
 }
+/* ============================================================
+   VOLBY AI
+   script.js — CHUNK 3/3
+   API + SEND + TYPING + REGENERATE
+============================================================ */
 
 
-/* ================= TYPING ================= */
+/* ================= TYPING INDICATOR ================= */
 
 function showTyping() {
 
@@ -1720,7 +1370,9 @@ function showTyping() {
 
 
     const row =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     row.id =
         "typing-message";
@@ -1730,24 +1382,30 @@ function showTyping() {
 
 
     const wrapper =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     wrapper.className =
         "message-content";
 
 
-    const role =
-        document.createElement("div");
+    const label =
+        document.createElement(
+            "div"
+        );
 
-    role.className =
+    label.className =
         "message-role";
 
-    role.textContent =
+    label.textContent =
         "Volby";
 
 
     const bubble =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     bubble.className =
         "message-bubble";
@@ -1763,12 +1421,13 @@ function showTyping() {
 
 
     wrapper.appendChild(
-        role
+        label
     );
 
     wrapper.appendChild(
         bubble
     );
+
 
     row.appendChild(
         wrapper
@@ -1796,53 +1455,22 @@ function removeTyping() {
 }
 
 
-/* ================= SCROLL ================= */
+/* ================= SEND ================= */
 
-function scrollToBottom() {
+async function sendMessage() {
 
-    if (!DOM.chat) {
-        DOM.chat =
-            document.getElementById(
-                "chat"
-            );
-    }
-
-
-    const chat =
-        DOM.chat;
-
-
-    if (!chat) {
+    if (
+        state.generating
+    ) {
         return;
     }
 
 
-    requestAnimationFrame(
-        () => {
-
-            chat.scrollTo({
-
-                top:
-                    chat.scrollHeight,
-
-                behavior:
-                    "smooth"
-
-            });
-
-        }
-    );
-
-}
+    const text =
+        DOM.input?.value.trim();
 
 
-/* ================= REGENERATE ================= */
-
-async function regenerateLastResponse() {
-
-    if (
-        state.isGenerating
-    ) {
+    if (!text) {
         return;
     }
 
@@ -1850,149 +1478,149 @@ async function regenerateLastResponse() {
     if (
         !state.currentConversation
     ) {
-        return;
+
+        newChat();
+
     }
 
 
-    const messages =
-        state.currentConversation.messages;
+    /* Hide welcome */
+
+    DOM.welcome.style.display =
+        "none";
 
 
-    if (
-        messages.length === 0
-    ) {
-        return;
-    }
+    /* Add user message */
 
-
-    let lastAssistant =
-        messages.length - 1;
-
-
-    if (
-        messages[lastAssistant].role !==
-        "assistant"
-    ) {
-        return;
-    }
-
-
-    const userMessage =
-        messages[lastAssistant - 1];
-
-
-    if (
-        !userMessage ||
-        userMessage.role !==
-            "user"
-    ) {
-        return;
-    }
-
-
-    messages.pop();
-
-
-    saveCurrentConversation();
-
-
-    DOM.messages.innerHTML = "";
-
-
-    messages.forEach(
-        message => {
-
-            renderMessage(
-                message.role,
-                message.content
-            );
-
-        }
+    addMessage(
+        "user",
+        text
     );
 
 
-    await requestAssistant(
-        userMessage.content
+    renderMessage(
+        "user",
+        text
     );
 
-}
-/* ============================================================
-   CHUNK 6/6
-   API + SEND + INITIALIZATION
-============================================================ */
+
+    /* Clear input */
+
+    DOM.input.value =
+        "";
+
+    updateInput();
+
+    scrollToBottom();
 
 
-/* ================= API REQUEST ================= */
+    /* Start request */
 
-async function requestAssistant(
-    userText
-) {
-
-    if (
-        state.isGenerating
-    ) {
-        return;
-    }
-
-
-    state.isGenerating =
+    state.generating =
         true;
 
-    updateSendButton();
+    updateInput();
 
     showTyping();
 
 
     try {
 
+        /*
+           IMPORTANT:
+           Your real backend expects:
+
+           {
+               messages: [...],
+               model: "groq"
+           }
+        */
+
+
+        const apiMessages =
+            state.currentConversation
+                .messages
+                .map(message => ({
+
+                    role:
+                        message.role,
+
+                    content:
+                        message.content
+
+                }));
+
+
         const response =
             await fetch(
-                VOLBY_CONFIG.API_URL + "/chat",
+                CONFIG.API_URL + "/chat",
                 {
-                    method: "POST",
+
+                    method:
+                        "POST",
 
                     headers: {
+
                         "Content-Type":
                             "application/json"
+
                     },
 
-                    body: JSON.stringify({
+                    body:
+                        JSON.stringify({
 
-                        message:
-                            userText,
+                            messages:
+                                apiMessages,
 
-                        model:
-                            state.selectedModel
+                            model:
+                                state.selectedModel
 
-                    })
+                        })
 
                 }
             );
 
 
-        if (!response.ok) {
+        /*
+           Read response even when
+           HTTP status is an error.
+        */
+
+        const data =
+            await response.json()
+                .catch(
+                    () => ({})
+                );
+
+
+        if (
+            !response.ok
+        ) {
+
+            const detail =
+                data.detail ||
+                `Server error ${response.status}`;
+
 
             throw new Error(
-                `API error: ${response.status}`
+                detail
             );
 
         }
 
 
-        const data =
-            await response.json();
-
-
         const answer =
-            extractAssistantResponse(
-                data
-            );
+            data.response;
 
 
-        if (!answer) {
+        if (
+            typeof answer !==
+            "string" ||
+            !answer.trim()
+        ) {
 
             throw new Error(
-                "The API returned an empty response."
+                "Volby returned an empty response."
             );
 
         }
@@ -2019,7 +1647,7 @@ async function requestAssistant(
     } catch (error) {
 
         console.error(
-            "Volby API error:",
+            "VOLBY API ERROR:",
             error
         );
 
@@ -2027,150 +1655,43 @@ async function requestAssistant(
         removeTyping();
 
 
-        const errorMessage =
-            "Sorry, I couldn't connect to Volby right now. Please try again.";
+        const message =
+            `Connection error: ${error.message}`;
 
 
         addMessage(
             "assistant",
-            errorMessage
+            message
         );
 
 
         renderMessage(
             "assistant",
-            errorMessage
+            message
         );
 
 
+        scrollToBottom();
+
     } finally {
 
-        state.isGenerating =
+        state.generating =
             false;
 
-        updateSendButton();
+        updateInput();
 
     }
 
 }
 
 
-/* ================= RESPONSE PARSER ================= */
+/* ================= REGENERATE ================= */
 
-function extractAssistantResponse(
-    data
-) {
-
-    if (!data) {
-        return "";
-    }
-
-
-    /*
-       Supports several common backend
-       response formats.
-    */
+async function regenerateResponse() {
 
     if (
-        typeof data ===
-        "string"
+        state.generating
     ) {
-        return data;
-    }
-
-
-    if (
-        typeof data.response ===
-        "string"
-    ) {
-        return data.response;
-    }
-
-
-    if (
-        typeof data.answer ===
-        "string"
-    ) {
-        return data.answer;
-    }
-
-
-    if (
-        typeof data.message ===
-        "string"
-    ) {
-        return data.message;
-    }
-
-
-    if (
-        typeof data.reply ===
-        "string"
-    ) {
-        return data.reply;
-    }
-
-
-    if (
-        data.data &&
-        typeof data.data ===
-            "string"
-    ) {
-        return data.data;
-    }
-
-
-    if (
-        data.choices &&
-        Array.isArray(
-            data.choices
-        )
-    ) {
-
-        const choice =
-            data.choices[0];
-
-
-        if (
-            choice &&
-            choice.message &&
-            typeof choice.message.content ===
-                "string"
-        ) {
-
-            return choice.message.content;
-
-        }
-
-    }
-
-
-    return "";
-
-}
-
-
-/* ================= SEND MESSAGE ================= */
-
-async function sendMessage() {
-
-    if (
-        state.isGenerating
-    ) {
-        return;
-    }
-
-
-    if (!DOM.input) {
-        return;
-    }
-
-
-    const text =
-        DOM.input.value.trim();
-
-
-    if (!text) {
         return;
     }
 
@@ -2178,135 +1699,273 @@ async function sendMessage() {
     if (
         !state.currentConversation
     ) {
-        startNewConversation();
+        return;
     }
 
 
-    /*
-       Hide welcome screen.
-    */
-
-    DOM.welcome.style.display =
-        "none";
+    const messages =
+        state.currentConversation.messages;
 
 
     /*
-       Add user message to state.
+       Find last assistant response.
     */
 
-    addMessage(
-        "user",
-        text
-    );
+    let assistantIndex =
+        -1;
 
 
-    /*
-       Render user message once.
-    */
-
-    renderMessage(
-        "user",
-        text
-    );
-
-
-    /*
-       Clear input.
-    */
-
-    DOM.input.value =
-        "";
-
-    DOM.input.style.height =
-        "auto";
-
-
-    updateCharacterCount();
-
-    updateSendButton();
-
-    scrollToBottom();
-
-
-    /*
-       Ask backend.
-    */
-
-    await requestAssistant(
-        text
-    );
-
-}
-
-
-/* ================= AUTH COMPATIBILITY ================= */
-
-/*
-   Supabase is loaded by index.html.
-   This frontend does not require authentication
-   to display or use the chat UI.
-
-   If your existing authentication system
-   exposes a global Supabase client, it will
-   remain untouched.
-*/
-
-function checkSupabaseAvailability() {
-
-    if (
-        window.supabase
+    for (
+        let i = messages.length - 1;
+        i >= 0;
+        i--
     ) {
 
-        console.log(
-            "Supabase library detected."
+        if (
+            messages[i].role ===
+            "assistant"
+        ) {
+
+            assistantIndex =
+                i;
+
+            break;
+
+        }
+
+    }
+
+
+    if (
+        assistantIndex === -1
+    ) {
+        return;
+    }
+
+
+    /*
+       The message immediately before
+       the assistant should be the user.
+    */
+
+    const userMessage =
+        messages[
+            assistantIndex - 1
+        ];
+
+
+    if (
+        !userMessage ||
+        userMessage.role !==
+            "user"
+    ) {
+
+        return;
+
+    }
+
+
+    /*
+       Remove old assistant response.
+    */
+
+    messages.splice(
+        assistantIndex,
+        1
+    );
+
+
+    saveCurrentConversation();
+
+
+    /*
+       Re-render conversation.
+    */
+
+    DOM.messages.innerHTML =
+        "";
+
+
+    messages.forEach(
+        message => {
+
+            renderMessage(
+                message.role,
+                message.content
+            );
+
+        }
+    );
+
+
+    /*
+       Send the same user message again.
+    */
+
+    await regenerateFromHistory(
+        userMessage.content
+    );
+
+}
+
+
+/* ================= REGENERATE REQUEST ================= */
+
+async function regenerateFromHistory(
+    userText
+) {
+
+    state.generating =
+        true;
+
+    updateInput();
+
+    showTyping();
+
+
+    try {
+
+        const apiMessages =
+            state.currentConversation
+                .messages
+                .map(message => ({
+
+                    role:
+                        message.role,
+
+                    content:
+                        message.content
+
+                }));
+
+
+        const response =
+            await fetch(
+                CONFIG.API_URL + "/chat",
+                {
+
+                    method:
+                        "POST",
+
+                    headers: {
+
+                        "Content-Type":
+                            "application/json"
+
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            messages:
+                                apiMessages,
+
+                            model:
+                                state.selectedModel
+
+                        })
+
+                }
+            );
+
+
+        const data =
+            await response.json()
+                .catch(
+                    () => ({})
+                );
+
+
+        if (
+            !response.ok
+        ) {
+
+            throw new Error(
+                data.detail ||
+                `Server error ${response.status}`
+            );
+
+        }
+
+
+        const answer =
+            data.response;
+
+
+        if (
+            !answer
+        ) {
+
+            throw new Error(
+                "Empty response from Volby."
+            );
+
+        }
+
+
+        removeTyping();
+
+
+        addMessage(
+            "assistant",
+            answer
         );
+
+
+        renderMessage(
+            "assistant",
+            answer
+        );
+
+
+        scrollToBottom();
+
+
+    } catch (error) {
+
+        console.error(
+            "REGENERATE ERROR:",
+            error
+        );
+
+
+        removeTyping();
+
+
+        const errorText =
+            `Connection error: ${error.message}`;
+
+
+        addMessage(
+            "assistant",
+            errorText
+        );
+
+
+        renderMessage(
+            "assistant",
+            errorText
+        );
+
+    } finally {
+
+        state.generating =
+            false;
+
+        updateInput();
 
     }
 
 }
 
 
-/* ================= FINAL EVENT SETUP ================= */
-
-function finishInitialization() {
-
-    bindInputEvents();
-
-    bindNewChatEvents();
-
-    bindSuggestions();
-
-    updateHistoryUI();
-
-    updateModelButton();
-
-    checkSupabaseAvailability();
-
-}
-
-
-/* ================= PATCH INITIALIZER ================= */
+/* ================= FINAL STARTUP ================= */
 
 /*
-   initVolby() from Chunk 1 runs first.
-   This adds the remaining event bindings
-   after the DOM has been cached.
+   Only ONE initialization.
+   This is important because the previous
+   script had multiple initialization blocks.
 */
-
-const originalInitVolby =
-    initVolby;
-
-
-function initVolbyFinal() {
-
-    originalInitVolby();
-
-    finishInitialization();
-
-}
-
-
-/* ================= START APPLICATION ================= */
 
 if (
     document.readyState ===
@@ -2315,7 +1974,7 @@ if (
 
     document.addEventListener(
         "DOMContentLoaded",
-        initVolbyFinal,
+        init,
         {
             once: true
         }
@@ -2323,6 +1982,6 @@ if (
 
 } else {
 
-    initVolbyFinal();
+    init();
 
 }
