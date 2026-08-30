@@ -1,460 +1,332 @@
 /* ============================================================
-   VOLBY AI
-   FRONTEND — SCRIPT.JS
-   CHUNK 1 / 6
-   Core + Supabase + Model System + UI Elements
+   VOLBY AI — CLEAN SCRIPT.JS
+   Single-file replacement
+   - Removed duplicate chunks/declarations
+   - Preserved chat, history, model selector, themes,
+     auth, suggestions, message actions and API flow
+   - Fixed send-state and initialization issues
 ============================================================ */
 
 "use strict";
 
-/* ============================================================
-   CONFIGURATION
-============================================================ */
+(() => {
 
-const BACKEND_URL =
-    "https://volby-ai-backend.onrender.com/chat";
+    /* ========================================================
+       CONFIGURATION
+    ======================================================== */
 
-const SUPABASE_URL =
-    "https://eyxhphclrpmtmikgwmnx.supabase.co";
+    const BACKEND_URL =
+        "https://volby-ai-backend.onrender.com/chat";
 
-const SUPABASE_PUBLISHABLE_KEY =
-    "sb_publishable_T5x5nYsNFTznpBdotgxfTQ_x0ITpd38";
+    const SUPABASE_URL =
+        "https://eyxhphclrpmtmikgwmnx.supabase.co";
 
+    const SUPABASE_PUBLISHABLE_KEY =
+        "sb_publishable_T5x5nYsNFTznpBdotgxfTQ_x0ITpd38";
 
-/* ============================================================
-   SUPABASE
-============================================================ */
+    const MODEL_STORAGE_KEY =
+        "volby_selected_model";
 
-const supabaseClient =
-    window.supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_PUBLISHABLE_KEY
-    );
+    const THEME_STORAGE_KEY =
+        "volby_theme";
 
+    const HISTORY_STORAGE_KEY =
+        "volby_chat_history";
 
-/* ============================================================
-   DOM ELEMENTS
-============================================================ */
+    const MAX_MESSAGE_LENGTH = 10000;
+    const MAX_HISTORY = 50;
 
-const body =
-    document.body;
-
-const sidebar =
-    document.getElementById("sidebar");
-
-const sidebarOverlay =
-    document.getElementById("sidebar-overlay");
-
-const menuButton =
-    document.getElementById("menu-button");
-
-const closeSidebar =
-    document.getElementById("close-sidebar");
-
-const newChatButton =
-    document.getElementById("new-chat-button");
-
-const historyList =
-    document.getElementById("history-list");
-
-const emptyHistory =
-    document.getElementById("empty-history");
-
-const messagesContainer =
-    document.getElementById("messages");
-
-const welcomeScreen =
-    document.getElementById("welcome-screen");
-
-const input =
-    document.getElementById("user-input");
-
-const sendButton =
-    document.getElementById("send-button");
-
-const characterCount =
-    document.getElementById("character-count");
-
-const themeButtons =
-    document.querySelectorAll(".theme-circle");
-
-const aboutButton =
-    document.getElementById("about-button");
-
-const aboutModal =
-    document.getElementById("about-modal");
-
-const closeAbout =
-    document.getElementById("close-about");
-
-const suggestions =
-    document.querySelectorAll(".suggestion");
-
-
-/* ============================================================
-   APPLICATION STATE
-============================================================ */
-
-let messages = [];
-
-let chatHistory = [];
-
-let currentUser = null;
-
-let selectedModel = "groq";
-
-let isGenerating = false;
-
-let currentChatId = null;
-
-
-/* ============================================================
-   MODEL CONFIGURATION
-============================================================ */
-
-const MODEL_STORAGE_KEY =
-    "volby_selected_model";
-
-
-const MODEL_OPTIONS = [
-
-    {
-        label: "Volby",
-        value: "groq",
-        description: "Fast AI"
-    },
-
-    {
-        label: "Volby Pro",
-        value: "openrouter",
-        description: "Advanced AI"
-    }
-
-];
-
-
-/* ============================================================
-   MODEL STORAGE
-============================================================ */
-
-function getSelectedModel() {
-
-    try {
-
-        const stored =
-            localStorage.getItem(
-                MODEL_STORAGE_KEY
-            );
-
-        if (
-            stored === "groq" ||
-            stored === "openrouter"
-        ) {
-
-            return stored;
-
+    const MODEL_OPTIONS = [
+        {
+            label: "Volby",
+            value: "groq",
+            description: "Fast AI"
+        },
+        {
+            label: "Volby Pro",
+            value: "openrouter",
+            description: "Advanced AI"
         }
+    ];
 
-        return "groq";
+    /* ========================================================
+       SAFE SUPABASE INITIALIZATION
+    ======================================================== */
 
-    } catch (error) {
-
-        console.error(
-            "Model storage read error:",
-            error
-        );
-
-        return "groq";
-    }
-}
-
-
-function setSelectedModel(model) {
+    let supabaseClient = null;
 
     if (
-        model !== "groq" &&
-        model !== "openrouter"
+        window.supabase &&
+        typeof window.supabase.createClient === "function"
     ) {
-
-        return;
-    }
-
-    selectedModel = model;
-
-    try {
-
-        localStorage.setItem(
-            MODEL_STORAGE_KEY,
-            model
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Model storage write error:",
-            error
+        try {
+            supabaseClient =
+                window.supabase.createClient(
+                    SUPABASE_URL,
+                    SUPABASE_PUBLISHABLE_KEY
+                );
+        } catch (error) {
+            console.error(
+                "Supabase initialization error:",
+                error
+            );
+        }
+    } else {
+        console.warn(
+            "Supabase library is not available."
         );
     }
 
-}
+    /* ========================================================
+       DOM
+    ======================================================== */
 
+    const body =
+        document.body;
 
-/* ============================================================
-   INITIAL MODEL
-============================================================ */
+    const sidebar =
+        document.getElementById("sidebar");
 
-selectedModel =
-    getSelectedModel();
+    const sidebarOverlay =
+        document.getElementById("sidebar-overlay");
 
+    const menuButton =
+        document.getElementById("menu-button");
 
-/* ============================================================
-   SAFE LOCAL STORAGE
-============================================================ */
+    const closeSidebarButton =
+        document.getElementById("close-sidebar");
 
-function getStorage(
-    key,
-    fallback
-) {
+    const newChatButton =
+        document.getElementById("new-chat-button");
 
-    try {
+    const historyList =
+        document.getElementById("history-list");
 
-        const value =
-            localStorage.getItem(key);
+    const emptyHistory =
+        document.getElementById("empty-history");
 
-        if (!value) {
+    const messagesContainer =
+        document.getElementById("messages");
+
+    const welcomeScreen =
+        document.getElementById("welcome-screen");
+
+    const input =
+        document.getElementById("user-input");
+
+    const sendButton =
+        document.getElementById("send-button");
+
+    const characterCount =
+        document.getElementById("character-count");
+
+    const themeButtons =
+        document.querySelectorAll(".theme-circle");
+
+    const aboutButton =
+        document.getElementById("about-button");
+
+    const aboutModal =
+        document.getElementById("about-modal");
+
+    const closeAbout =
+        document.getElementById("close-about");
+
+    const suggestions =
+        document.querySelectorAll(".suggestion");
+
+    /* ========================================================
+       STATE
+    ======================================================== */
+
+    let messages = [];
+
+    let chatHistory =
+        getStorage(
+            HISTORY_STORAGE_KEY,
+            []
+        );
+
+    if (!Array.isArray(chatHistory)) {
+        chatHistory = [];
+    }
+
+    let currentUser = null;
+
+    let selectedModel =
+        getSelectedModel();
+
+    let isSending = false;
+
+    let currentChatId = null;
+
+    /* ========================================================
+       STORAGE
+    ======================================================== */
+
+    function getStorage(key, fallback) {
+        try {
+            const value =
+                localStorage.getItem(key);
+
+            if (!value) {
+                return fallback;
+            }
+
+            return JSON.parse(value);
+
+        } catch (error) {
+            console.error(
+                "Storage read error:",
+                error
+            );
 
             return fallback;
-
         }
-
-        return JSON.parse(value);
-
-    } catch (error) {
-
-        console.error(
-            "Storage read error:",
-            error
-        );
-
-        return fallback;
     }
 
-}
-
-
-function setStorage(
-    key,
-    value
-) {
-
-    try {
-
-        localStorage.setItem(
-            key,
-            JSON.stringify(value)
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Storage write error:",
-            error
-        );
-    }
-
-}
-
-
-/* ============================================================
-   CHAT HISTORY INITIALIZATION
-============================================================ */
-
-chatHistory =
-    getStorage(
-        "volby_chat_history",
-        []
-    );
-
-
-/* ============================================================
-   THEME SYSTEM
-============================================================ */
-
-function setTheme(theme) {
-
-    if (!theme) {
-
-        theme = "midnight";
-
-    }
-
-    body.dataset.theme =
-        theme;
-
-    try {
-
-        localStorage.setItem(
-            "volby_theme",
-            theme
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Theme storage error:",
-            error
-        );
-    }
-
-    themeButtons.forEach(
-        button => {
-
-            button.classList.toggle(
-                "active",
-                button.dataset.theme === theme
+    function setStorage(key, value) {
+        try {
+            localStorage.setItem(
+                key,
+                JSON.stringify(value)
             );
 
+            return true;
+
+        } catch (error) {
+            console.error(
+                "Storage write error:",
+                error
+            );
+
+            return false;
         }
-    );
+    }
 
-}
+    /* ========================================================
+       MODEL
+    ======================================================== */
 
-
-/* ============================================================
-   LOAD SAVED THEME
-============================================================ */
-
-let savedTheme =
-    "midnight";
-
-try {
-
-    savedTheme =
-        localStorage.getItem(
-            "volby_theme"
-        ) ||
-        "midnight";
-
-} catch (error) {
-
-    console.error(
-        "Theme read error:",
-        error
-    );
-}
-
-
-setTheme(savedTheme);
-
-
-/* ============================================================
-   THEME BUTTONS
-============================================================ */
-
-themeButtons.forEach(
-    button => {
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                setTheme(
-                    button.dataset.theme
+    function getSelectedModel() {
+        try {
+            const stored =
+                localStorage.getItem(
+                    MODEL_STORAGE_KEY
                 );
 
+            if (
+                stored === "groq" ||
+                stored === "openrouter"
+            ) {
+                return stored;
             }
-        );
 
-    }
-);
+        } catch (error) {
+            console.error(
+                "Model storage read error:",
+                error
+            );
+        }
 
-
-/* ============================================================
-   MODEL SELECTOR
-============================================================ */
-
-function createModelSelector() {
-
-    if (
-        document.getElementById(
-            "volby-model-selector"
-        )
-    ) {
-
-        return;
+        return "groq";
     }
 
+    function setSelectedModel(model) {
+        if (
+            model !== "groq" &&
+            model !== "openrouter"
+        ) {
+            return;
+        }
 
-    const wrapper =
-        document.createElement(
-            "div"
+        selectedModel = model;
+
+        try {
+            localStorage.setItem(
+                MODEL_STORAGE_KEY,
+                model
+            );
+        } catch (error) {
+            console.error(
+                "Model storage write error:",
+                error
+            );
+        }
+
+        updateModelSelectorUI();
+        updateInputPlaceholder();
+        updateSendButtonState();
+        showModelChangedFeedback(model);
+    }
+
+    function createModelSelector() {
+
+        if (
+            document.getElementById(
+                "volby-model-selector"
+            )
+        ) {
+            updateModelSelectorUI();
+            return;
+        }
+
+        const inputControls =
+            document.getElementById(
+                "input-controls"
+            );
+
+        if (!inputControls) {
+            return;
+        }
+
+        const wrapper =
+            document.createElement("div");
+
+        wrapper.id =
+            "volby-model-selector";
+
+        wrapper.className =
+            "volby-model-selector";
+
+        const currentButton =
+            document.createElement("button");
+
+        currentButton.type = "button";
+        currentButton.id =
+            "current-model-button";
+
+        currentButton.className =
+            "current-model-button";
+
+        currentButton.setAttribute(
+            "aria-haspopup",
+            "true"
         );
 
-    wrapper.id =
-        "volby-model-selector";
-
-
-    /* --------------------------------------------------------
-       CURRENT MODEL BUTTON
-    -------------------------------------------------------- */
-
-    const currentButton =
-        document.createElement(
-            "button"
+        currentButton.setAttribute(
+            "aria-expanded",
+            "false"
         );
 
-    currentButton.type =
-        "button";
+        const menu =
+            document.createElement("div");
 
-    currentButton.id =
-        "current-model-button";
+        menu.id =
+            "model-selector-menu";
 
-    currentButton.className =
-        "current-model-button";
+        menu.className =
+            "model-selector-menu";
 
-    currentButton.setAttribute(
-        "aria-haspopup",
-        "true"
-    );
-
-    currentButton.setAttribute(
-        "aria-expanded",
-        "false"
-    );
-
-
-    /* --------------------------------------------------------
-       DROPDOWN
-    -------------------------------------------------------- */
-
-    const menu =
-        document.createElement(
-            "div"
+        menu.setAttribute(
+            "role",
+            "menu"
         );
 
-    menu.id =
-        "model-selector-menu";
-
-    menu.className =
-        "model-selector-menu";
-
-    menu.setAttribute(
-        "role",
-        "menu"
-    );
-
-
-    /* --------------------------------------------------------
-       MODEL OPTIONS
-    -------------------------------------------------------- */
-
-    MODEL_OPTIONS.forEach(
-        option => {
+        MODEL_OPTIONS.forEach(option => {
 
             const optionButton =
-                document.createElement(
-                    "button"
-                );
+                document.createElement("button");
 
             optionButton.type =
                 "button";
@@ -470,8 +342,23 @@ function createModelSelector() {
                 "menuitem"
             );
 
-
             optionButton.innerHTML = `
+                <span
+                    class="model-option-icon"
+                    aria-hidden="true"
+                >
+                    ${option.value === "groq" ? "⚡" : "✦"}
+                </span>
+
+                <span class="model-option-info">
+                    <span class="model-option-name">
+                        ${option.label}
+                    </span>
+
+                    <span class="model-option-description">
+                        ${option.description}
+                    </span>
+                </span>
 
                 <span
                     class="model-option-check"
@@ -479,129 +366,57 @@ function createModelSelector() {
                 >
                     ✓
                 </span>
-
-                <span
-                    class="model-option-name"
-                >
-                    ${option.label}
-                </span>
-
             `;
-
 
             optionButton.addEventListener(
                 "click",
                 event => {
-
                     event.stopPropagation();
-
 
                     setSelectedModel(
                         option.value
                     );
 
-
-                    updateModelSelectorUI();
-
-
                     menu.classList.remove(
                         "open"
                     );
-
 
                     currentButton.setAttribute(
                         "aria-expanded",
                         "false"
                     );
-
                 }
             );
-
 
             menu.appendChild(
                 optionButton
             );
+        });
 
-        }
-    );
+        currentButton.addEventListener(
+            "click",
+            event => {
+                event.stopPropagation();
 
-
-    /* --------------------------------------------------------
-       OPEN / CLOSE MODEL MENU
-    -------------------------------------------------------- */
-
-    currentButton.addEventListener(
-        "click",
-        event => {
-
-            event.stopPropagation();
-
-            const isOpen =
-                menu.classList.toggle(
-                    "open"
-                );
-
-
-            currentButton.setAttribute(
-                "aria-expanded",
-                isOpen
-                    ? "true"
-                    : "false"
-            );
-
-        }
-    );
-
-
-    /* --------------------------------------------------------
-       CLOSE WHEN CLICKING OUTSIDE
-    -------------------------------------------------------- */
-
-    document.addEventListener(
-        "click",
-        event => {
-
-            if (
-                !wrapper.contains(
-                    event.target
-                )
-            ) {
-
-                menu.classList.remove(
-                    "open"
-                );
+                const open =
+                    menu.classList.toggle(
+                        "open"
+                    );
 
                 currentButton.setAttribute(
                     "aria-expanded",
-                    "false"
+                    open ? "true" : "false"
                 );
-
             }
-
-        }
-    );
-
-
-    /* --------------------------------------------------------
-       INSERT INTO COMPOSER
-    -------------------------------------------------------- */
-
-    wrapper.appendChild(
-        currentButton
-    );
-
-    wrapper.appendChild(
-        menu
-    );
-
-
-    const inputControls =
-        document.getElementById(
-            "input-controls"
         );
 
+        wrapper.appendChild(
+            currentButton
+        );
 
-    if (inputControls) {
+        wrapper.appendChild(
+            menu
+        );
 
         inputControls.insertBefore(
             wrapper,
@@ -609,2899 +424,104 @@ function createModelSelector() {
         );
 
         updateModelSelectorUI();
-
     }
 
-}
+    function updateModelSelectorUI() {
 
-
-/* ============================================================
-   MODEL SELECTOR UI
-============================================================ */
-
-function updateModelSelectorUI() {
-
-    const currentButton =
-        document.getElementById(
-            "current-model-button"
-        );
-
-    const optionButtons =
-        document.querySelectorAll(
-            ".model-option"
-        );
-
-
-    if (!currentButton) {
-
-        return;
-    }
-
-
-    const selectedOption =
-        MODEL_OPTIONS.find(
-            option =>
-                option.value === selectedModel
-        );
-
-
-    if (!selectedOption) {
-
-        return;
-    }
-
-
-    currentButton.innerHTML = `
-
-        <span>
-            ${selectedOption.label}
-        </span>
-
-        <span
-            class="model-arrow"
-            aria-hidden="true"
-        >
-            ▾
-        </span>
-
-    `;
-
-
-    optionButtons.forEach(
-        button => {
-
-            const isSelected =
-                button.dataset.model ===
-                selectedModel;
-
-
-            button.classList.toggle(
-                "selected",
-                isSelected
+        const currentButton =
+            document.getElementById(
+                "current-model-button"
             );
 
-
-            const check =
-                button.querySelector(
-                    ".model-option-check"
-                );
-
-
-            if (check) {
-
-                check.style.visibility =
-                    isSelected
-                        ? "visible"
-                        : "hidden";
-
-            }
-
+        if (!currentButton) {
+            return;
         }
-    );
 
-}
-
-
-/* ============================================================
-   SAFE TEXT HELPER
-============================================================ */
-
-function safeText(value) {
-
-    if (
-        value === null ||
-        value === undefined
-    ) {
-
-        return "";
-
-    }
-
-    return String(value);
-
-}
-
-
-/* ============================================================
-   CHARACTER COUNTER
-============================================================ */
-
-function updateCharacterCount() {
-
-    if (!characterCount) {
-
-        return;
-    }
-
-
-    characterCount.textContent =
-        `${input.value.length} / 10000`;
-
-}
-
-
-/* ============================================================
-   INPUT AUTO RESIZE
-============================================================ */
-
-function autoResize() {
-
-    if (!input) {
-
-        return;
-    }
-
-
-    input.style.height =
-        "auto";
-
-
-    input.style.height =
-        Math.min(
-            input.scrollHeight,
-            160
-        ) + "px";
-
-}
-
-
-/* ============================================================
-   INPUT EVENTS
-============================================================ */
-
-if (input) {
-
-    input.addEventListener(
-        "input",
-        () => {
-
-            updateCharacterCount();
-
-            autoResize();
-
-        }
-    );
-
-}
-
-
-/* ============================================================
-   INITIAL UI SETUP
-============================================================ */
-
-updateCharacterCount();
-
-autoResize();
-
-createModelSelector();
-
-
-/* ============================================================
-   END OF CHUNK 1 / 6
-============================================================ */
-/* ============================================================
-   VOLBY AI — SCRIPT.JS
-   CHUNK 2 / 6
-   MODEL SELECTOR + THEME + AUTH
-============================================================ */
-
-
-/* ============================================================
-   MODEL SELECTION
-============================================================ */
-
-const MODEL_STORAGE_KEY = "volby_selected_model";
-
-const MODEL_OPTIONS = [
-    {
-        label: "Volby",
-        value: "groq",
-        description: "Fast AI"
-    },
-    {
-        label: "Volby Pro",
-        value: "openrouter",
-        description: "Advanced AI"
-    }
-];
-
-
-function getSelectedModel() {
-
-    try {
-
-        const stored =
-            localStorage.getItem(
-                MODEL_STORAGE_KEY
+        const option =
+            MODEL_OPTIONS.find(
+                item =>
+                    item.value === selectedModel
             );
 
-        if (
-            stored === "groq" ||
-            stored === "openrouter"
-        ) {
-            return stored;
+        if (!option) {
+            return;
         }
 
-        return "groq";
+        const icon =
+            selectedModel === "groq"
+                ? "⚡"
+                : "✦";
 
-    } catch (error) {
-
-        console.error(
-            "Model storage read error:",
-            error
-        );
-
-        return "groq";
-    }
-}
-
-
-function setSelectedModel(model) {
-
-    if (
-        model !== "groq" &&
-        model !== "openrouter"
-    ) {
-        return;
-    }
-
-    selectedModel = model;
-
-    try {
-
-        localStorage.setItem(
-            MODEL_STORAGE_KEY,
-            model
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Model storage write error:",
-            error
-        );
-    }
-}
-
-
-let selectedModel =
-    getSelectedModel();
-
-
-/* ============================================================
-   MODEL SELECTOR
-============================================================ */
-
-function createModelSelector() {
-
-    if (
-        document.getElementById(
-            "volby-model-selector"
-        )
-    ) {
-        return;
-    }
-
-
-    const wrapper =
-        document.createElement("div");
-
-    wrapper.id =
-        "volby-model-selector";
-
-    wrapper.className =
-        "volby-model-selector";
-
-
-    /* --------------------------------------------------------
-       CURRENT MODEL BUTTON
-    -------------------------------------------------------- */
-
-    const currentButton =
-        document.createElement("button");
-
-    currentButton.type = "button";
-
-    currentButton.id =
-        "current-model-button";
-
-    currentButton.className =
-        "current-model-button";
-
-    currentButton.setAttribute(
-        "aria-expanded",
-        "false"
-    );
-
-    currentButton.setAttribute(
-        "aria-haspopup",
-        "true"
-    );
-
-
-    /* --------------------------------------------------------
-       DROPDOWN
-    -------------------------------------------------------- */
-
-    const menu =
-        document.createElement("div");
-
-    menu.id =
-        "model-selector-menu";
-
-    menu.className =
-        "model-selector-menu";
-
-
-    MODEL_OPTIONS.forEach(option => {
-
-        const optionButton =
-            document.createElement("button");
-
-        optionButton.type =
-            "button";
-
-        optionButton.className =
-            "model-option";
-
-        optionButton.dataset.model =
-            option.value;
-
-        optionButton.innerHTML = `
-            <span class="model-option-icon">
-                ${option.value === "groq" ? "⚡" : "✦"}
+        currentButton.innerHTML = `
+            <span class="current-model-icon">
+                ${icon}
             </span>
 
-            <span class="model-option-info">
-                <span class="model-option-name">
-                    ${option.label}
-                </span>
-
-                <span class="model-option-description">
-                    ${option.description}
-                </span>
+            <span class="current-model-name">
+                ${option.label}
             </span>
 
-            <span class="model-option-check">
-                ✓
+            <span
+                class="model-arrow"
+                aria-hidden="true"
+            >
+                ▾
             </span>
         `;
 
+        document
+            .querySelectorAll(".model-option")
+            .forEach(button => {
 
-        optionButton.addEventListener(
-            "click",
-            event => {
+                const active =
+                    button.dataset.model ===
+                    selectedModel;
 
-                event.stopPropagation();
-
-                setSelectedModel(
-                    option.value
+                button.classList.toggle(
+                    "selected",
+                    active
                 );
 
-                updateModelSelectorUI();
-
-                menu.classList.remove(
-                    "open"
-                );
-
-                currentButton.setAttribute(
-                    "aria-expanded",
-                    "false"
-                );
-            }
-        );
-
-
-        menu.appendChild(
-            optionButton
-        );
-    });
-
-
-    /* --------------------------------------------------------
-       OPEN / CLOSE
-    -------------------------------------------------------- */
-
-    currentButton.addEventListener(
-        "click",
-        event => {
-
-            event.stopPropagation();
-
-            const isOpen =
-                menu.classList.toggle(
-                    "open"
-                );
-
-            currentButton.setAttribute(
-                "aria-expanded",
-                isOpen
-                    ? "true"
-                    : "false"
-            );
-        }
-    );
-
-
-    /* --------------------------------------------------------
-       OUTSIDE CLICK
-    -------------------------------------------------------- */
-
-    document.addEventListener(
-        "click",
-        event => {
-
-            if (
-                !wrapper.contains(
-                    event.target
-                )
-            ) {
-
-                menu.classList.remove(
-                    "open"
-                );
-
-                currentButton.setAttribute(
-                    "aria-expanded",
-                    "false"
-                );
-            }
-        }
-    );
-
-
-    wrapper.appendChild(
-        currentButton
-    );
-
-    wrapper.appendChild(
-        menu
-    );
-
-
-    /* --------------------------------------------------------
-       INSERT INTO COMPOSER
-    -------------------------------------------------------- */
-
-    const inputControls =
-        document.getElementById(
-            "input-controls"
-        );
-
-
-    if (inputControls) {
-
-        inputControls.insertBefore(
-            wrapper,
-            inputControls.firstChild
-        );
-
-        updateModelSelectorUI();
-    }
-}
-
-
-/* ============================================================
-   UPDATE MODEL SELECTOR UI
-============================================================ */
-
-function updateModelSelectorUI() {
-
-    const currentButton =
-        document.getElementById(
-            "current-model-button"
-        );
-
-
-    const optionButtons =
-        document.querySelectorAll(
-            ".model-option"
-        );
-
-
-    if (!currentButton) {
-        return;
-    }
-
-
-    const selectedOption =
-        MODEL_OPTIONS.find(
-            option =>
-                option.value ===
-                selectedModel
-        );
-
-
-    if (!selectedOption) {
-        return;
-    }
-
-
-    const icon =
-        selectedModel === "groq"
-            ? "⚡"
-            : "✦";
-
-
-    currentButton.innerHTML = `
-        <span class="current-model-icon">
-            ${icon}
-        </span>
-
-        <span class="current-model-name">
-            ${selectedOption.label}
-        </span>
-
-        <span class="model-arrow">
-            ▾
-        </span>
-    `;
-
-
-    optionButtons.forEach(
-        button => {
-
-            const isSelected =
-                button.dataset.model ===
-                selectedModel;
-
-
-            button.classList.toggle(
-                "selected",
-                isSelected
-            );
-
-
-            const check =
-                button.querySelector(
-                    ".model-option-check"
-                );
-
-
-            if (check) {
-
-                check.style.visibility =
-                    isSelected
-                        ? "visible"
-                        : "hidden";
-            }
-        }
-    );
-}
-
-
-/* ============================================================
-   THEME SYSTEM
-============================================================ */
-
-function setTheme(theme) {
-
-    if (!theme) {
-        theme = "midnight";
-    }
-
-
-    body.dataset.theme =
-        theme;
-
-
-    try {
-
-        localStorage.setItem(
-            "volby_theme",
-            theme
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Theme storage error:",
-            error
-        );
-    }
-
-
-    themeButtons.forEach(
-        button => {
-
-            button.classList.toggle(
-                "active",
-                button.dataset.theme ===
-                    theme
-            );
-        }
-    );
-}
-
-
-let savedTheme =
-    "midnight";
-
-
-try {
-
-    savedTheme =
-        localStorage.getItem(
-            "volby_theme"
-        ) || "midnight";
-
-} catch (error) {
-
-    console.error(
-        "Theme read error:",
-        error
-    );
-}
-
-
-setTheme(
-    savedTheme
-);
-
-
-themeButtons.forEach(
-    button => {
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                setTheme(
-                    button.dataset.theme
-                );
-            }
-        );
-    }
-);
-
-
-/* ============================================================
-   AUTH SCREEN
-============================================================ */
-
-function createAuthScreen() {
-
-    const existing =
-        document.getElementById(
-            "volby-auth-screen"
-        );
-
-
-    if (existing) {
-        return;
-    }
-
-
-    const authScreen =
-        document.createElement("div");
-
-    authScreen.id =
-        "volby-auth-screen";
-
-
-    authScreen.innerHTML = `
-        <div class="auth-backdrop"></div>
-
-        <div class="auth-box">
-
-            <div class="auth-logo">
-                <img
-                    src="volby-logo.png"
-                    alt="Volby AI"
-                >
-            </div>
-
-            <div class="auth-brand">
-                <span class="auth-brand-name">
-                    VOLBY
-                </span>
-
-                <span class="auth-brand-subtitle">
-                    AI
-                </span>
-            </div>
-
-            <h2>
-                Welcome to Volby
-            </h2>
-
-            <p class="auth-subtitle">
-                Your intelligent AI assistant.
-            </p>
-
-            <div
-                id="auth-error"
-                class="auth-error"
-            ></div>
-
-            <div class="auth-input-group">
-
-                <label for="auth-email">
-                    Email
-                </label>
-
-                <input
-                    id="auth-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    autocomplete="email"
-                >
-
-            </div>
-
-
-            <div class="auth-input-group">
-
-                <label for="auth-password">
-                    Password
-                </label>
-
-                <input
-                    id="auth-password"
-                    type="password"
-                    placeholder="Enter your password"
-                    autocomplete="current-password"
-                >
-
-            </div>
-
-
-            <button
-                id="auth-submit"
-                class="auth-submit"
-            >
-                Log In
-            </button>
-
-
-            <button
-                id="auth-toggle"
-                class="auth-toggle"
-            >
-                Don't have an account?
-                Sign Up
-            </button>
-
-
-            <p class="auth-note">
-                Your account keeps your Volby experience connected.
-            </p>
-
-        </div>
-    `;
-
-
-    document.body.appendChild(
-        authScreen
-    );
-
-
-    const emailInput =
-        document.getElementById(
-            "auth-email"
-        );
-
-
-    const passwordInput =
-        document.getElementById(
-            "auth-password"
-        );
-
-
-    const submitButton =
-        document.getElementById(
-            "auth-submit"
-        );
-
-
-    const toggleButton =
-        document.getElementById(
-            "auth-toggle"
-        );
-
-
-    const errorElement =
-        document.getElementById(
-            "auth-error"
-        );
-
-
-    let isSignup =
-        false;
-
-
-    /* ========================================================
-       TOGGLE LOGIN / SIGNUP
-    ======================================================== */
-
-    toggleButton.addEventListener(
-        "click",
-        () => {
-
-            isSignup =
-                !isSignup;
-
-
-            submitButton.textContent =
-                isSignup
-                    ? "Create Account"
-                    : "Log In";
-
-
-            toggleButton.textContent =
-                isSignup
-                    ? "Already have an account? Log In"
-                    : "Don't have an account? Sign Up";
-
-
-            errorElement.textContent =
-                "";
-        }
-    );
-
-
-    /* ========================================================
-       AUTHENTICATE
-    ======================================================== */
-
-    async function authenticate() {
-
-        const email =
-            emailInput.value.trim();
-
-
-        const password =
-            passwordInput.value;
-
-
-        errorElement.textContent =
-            "";
-
-
-        if (
-            !email ||
-            !password
-        ) {
-
-            errorElement.textContent =
-                "Please enter your email and password.";
-
-            return;
-        }
-
-
-        if (
-            password.length < 6
-        ) {
-
-            errorElement.textContent =
-                "Password must be at least 6 characters.";
-
-            return;
-        }
-
-
-        submitButton.disabled =
-            true;
-
-
-        submitButton.textContent =
-            isSignup
-                ? "Creating account..."
-                : "Logging in...";
-
-
-        try {
-
-            let result;
-
-
-            if (isSignup) {
-
-                result =
-                    await supabaseClient.auth.signUp({
-                        email,
-                        password
-                    });
-
-            } else {
-
-                result =
-                    await supabaseClient.auth.signInWithPassword({
-                        email,
-                        password
-                    });
-            }
-
-
-            if (result.error) {
-                throw result.error;
-            }
-
-
-            /* ------------------------------------------------
-               EMAIL CONFIRMATION REQUIRED
-            ------------------------------------------------ */
-
-            if (
-                isSignup &&
-                result.data.user &&
-                !result.data.session
-            ) {
-
-                errorElement.textContent =
-                    "Account created. Check your email to confirm your account.";
-
-                submitButton.disabled =
-                    false;
-
-                submitButton.textContent =
-                    "Create Account";
-
-                return;
-            }
-
-
-            /* ------------------------------------------------
-               SUCCESS
-            ------------------------------------------------ */
-
-            currentUser =
-                result.data.user;
-
-
-            authScreen.remove();
-
-
-            showAuthenticatedUI();
-
-
-        } catch (error) {
-
-            console.error(
-                "Authentication error:",
-                error
-            );
-
-
-            errorElement.textContent =
-                error.message ||
-                "Authentication failed.";
-
-
-            submitButton.disabled =
-                false;
-
-
-            submitButton.textContent =
-                isSignup
-                    ? "Create Account"
-                    : "Log In";
-        }
-    }
-
-
-    submitButton.addEventListener(
-        "click",
-        authenticate
-    );
-
-
-    /* ========================================================
-       ENTER KEY
-    ======================================================== */
-
-    passwordInput.addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key === "Enter"
-            ) {
-
-                authenticate();
-            }
-        }
-    );
-
-
-    emailInput.focus();
-}
-
-
-/* ============================================================
-   AUTHENTICATED UI
-============================================================ */
-
-function showAuthenticatedUI() {
-
-    document.body.classList.add(
-        "authenticated"
-    );
-
-
-    addLogoutButton();
-
-
-    /*
-     * Make sure the model selector
-     * exists after authentication.
-     */
-
-    createModelSelector();
-}
-
-
-/* ============================================================
-   LOGOUT BUTTON
-============================================================ */
-
-function addLogoutButton() {
-
-    if (
-        document.getElementById(
-            "volby-logout-button"
-        )
-    ) {
-        return;
-    }
-
-
-    const logoutButton =
-        document.createElement("button");
-
-
-    logoutButton.id =
-        "volby-logout-button";
-
-
-    logoutButton.className =
-        "about-button";
-
-
-    logoutButton.innerHTML =
-        "↪ <span>Log Out</span>";
-
-
-    logoutButton.addEventListener(
-        "click",
-        async () => {
-
-            const confirmed =
-                confirm(
-                    "Are you sure you want to log out?"
-                );
-
-
-            if (!confirmed) {
-                return;
-            }
-
-
-            logoutButton.disabled =
-                true;
-
-
-            try {
-
-                const {
-                    error
-                } =
-                    await supabaseClient.auth.signOut();
-
-
-                if (error) {
-                    throw error;
-                }
-
-
-                currentUser =
-                    null;
-
-
-                document.body.classList.remove(
-                    "authenticated"
-                );
-
-
-                logoutButton.remove();
-
-
-                createAuthScreen();
-
-
-            } catch (error) {
-
-                console.error(
-                    "Logout error:",
-                    error
-                );
-
-
-                alert(
-                    "Could not log out. Please try again."
-                );
-
-
-                logoutButton.disabled =
-                    false;
-            }
-        }
-    );
-
-
-    const sidebarBottom =
-        document.querySelector(
-            ".sidebar-bottom"
-        );
-
-
-    if (sidebarBottom) {
-
-        sidebarBottom.appendChild(
-            logoutButton
-        );
-    }
-}
-
-
-/* ============================================================
-   AUTH INITIALIZATION
-============================================================ */
-
-async function initializeAuthentication() {
-
-    try {
-
-        const {
-            data,
-            error
-        } =
-            await supabaseClient.auth.getSession();
-
-
-        if (error) {
-            throw error;
-        }
-
-
-        if (
-            data.session &&
-            data.session.user
-        ) {
-
-            currentUser =
-                data.session.user;
-
-
-            showAuthenticatedUI();
-
-        } else {
-
-            createAuthScreen();
-        }
-
-
-    } catch (error) {
-
-        console.error(
-            "Session initialization error:",
-            error
-        );
-
-
-        createAuthScreen();
-    }
-
-
-    /* --------------------------------------------------------
-       AUTH STATE LISTENER
-    -------------------------------------------------------- */
-
-    supabaseClient.auth.onAuthStateChange(
-        (event, session) => {
-
-            if (
-                session &&
-                session.user
-            ) {
-
-                currentUser =
-                    session.user;
-
-                document.body.classList.add(
-                    "authenticated"
-                );
-
-            } else {
-
-                currentUser =
-                    null;
-
-                document.body.classList.remove(
-                    "authenticated"
-                );
-            }
-        }
-    );
-}
-/* ============================================================
-   VOLBY AI — SCRIPT.JS
-   CHUNK 3 / 6
-   SIDEBAR + CHAT RESET + INPUT SYSTEM
-============================================================ */
-
-
-/* ============================================================
-   SIDEBAR
-============================================================ */
-
-function openSidebar() {
-
-    if (sidebar) {
-        sidebar.classList.add("open");
-    }
-
-    if (sidebarOverlay) {
-        sidebarOverlay.classList.add("active");
-    }
-
-    document.body.classList.add(
-        "sidebar-open"
-    );
-}
-
-
-function closeSidebarMenu() {
-
-    if (sidebar) {
-        sidebar.classList.remove("open");
-    }
-
-    if (sidebarOverlay) {
-        sidebarOverlay.classList.remove("active");
-    }
-
-    document.body.classList.remove(
-        "sidebar-open"
-    );
-}
-
-
-/* ============================================================
-   SIDEBAR EVENTS
-============================================================ */
-
-if (menuButton) {
-
-    menuButton.addEventListener(
-        "click",
-        openSidebar
-    );
-}
-
-
-if (closeSidebar) {
-
-    closeSidebar.addEventListener(
-        "click",
-        closeSidebarMenu
-    );
-}
-
-
-if (sidebarOverlay) {
-
-    sidebarOverlay.addEventListener(
-        "click",
-        closeSidebarMenu
-    );
-}
-
-
-/* ============================================================
-   ESC KEY
-============================================================ */
-
-document.addEventListener(
-    "keydown",
-    event => {
-
-        if (
-            event.key === "Escape"
-        ) {
-
-            closeSidebarMenu();
-        }
-    }
-);
-
-
-/* ============================================================
-   NEW CHAT
-============================================================ */
-
-function startNewChat() {
-
-    messages = [];
-
-
-    /* --------------------------------------------------------
-       Clear visible messages
-    -------------------------------------------------------- */
-
-    if (messagesContainer) {
-
-        messagesContainer.innerHTML = "";
-
-
-        if (welcomeScreen) {
-
-            messagesContainer.appendChild(
-                welcomeScreen
-            );
-
-            welcomeScreen.style.display =
-                "";
-        }
-    }
-
-
-    /* --------------------------------------------------------
-       Clear input
-    -------------------------------------------------------- */
-
-    if (input) {
-
-        input.value = "";
-
-        input.style.height =
-            "auto";
-
-        input.focus();
-    }
-
-
-    updateCharacterCount();
-    autoResize();
-
-
-    /* --------------------------------------------------------
-       Close mobile sidebar
-    -------------------------------------------------------- */
-
-    closeSidebarMenu();
-}
-
-
-/* ============================================================
-   NEW CHAT BUTTON
-============================================================ */
-
-if (newChatButton) {
-
-    newChatButton.addEventListener(
-        "click",
-        startNewChat
-    );
-}
-
-
-/* ============================================================
-   INPUT SYSTEM
-============================================================ */
-
-if (input) {
-
-    input.addEventListener(
-        "input",
-        () => {
-
-            updateCharacterCount();
-
-            autoResize();
-
-            updateSendButtonState();
-        }
-    );
-
-
-    /* --------------------------------------------------------
-       ENTER TO SEND
-       SHIFT + ENTER = NEW LINE
-    -------------------------------------------------------- */
-
-    input.addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key === "Enter" &&
-                !event.shiftKey
-            ) {
-
-                event.preventDefault();
-
-                if (
-                    !sendButton ||
-                    sendButton.disabled
-                ) {
-                    return;
-                }
-
-                sendMessage();
-            }
-        }
-    );
-}
-
-
-/* ============================================================
-   CHARACTER COUNT
-============================================================ */
-
-function updateCharacterCount() {
-
-    if (!characterCount || !input) {
-        return;
-    }
-
-
-    const length =
-        input.value.length;
-
-
-    characterCount.textContent =
-        `${length.toLocaleString()} / 10,000`;
-
-
-    if (length >= 9500) {
-
-        characterCount.classList.add(
-            "warning"
-        );
-
-    } else {
-
-        characterCount.classList.remove(
-            "warning"
-        );
-    }
-}
-
-
-/* ============================================================
-   AUTO RESIZE TEXTAREA
-============================================================ */
-
-function autoResize() {
-
-    if (!input) {
-        return;
-    }
-
-
-    input.style.height =
-        "auto";
-
-
-    const maxHeight =
-        180;
-
-
-    input.style.height =
-        Math.min(
-            input.scrollHeight,
-            maxHeight
-        ) + "px";
-}
-
-
-/* ============================================================
-   SEND BUTTON STATE
-============================================================ */
-
-function updateSendButtonState() {
-
-    if (!sendButton || !input) {
-        return;
-    }
-
-
-    const hasText =
-        input.value.trim().length > 0;
-
-
-    if (!isSending) {
-
-        sendButton.disabled =
-            !hasText;
-    }
-
-
-    sendButton.classList.toggle(
-        "ready",
-        hasText && !isSending
-    );
-}
-
-
-/* ============================================================
-   SUGGESTION BUTTONS
-============================================================ */
-
-if (suggestions) {
-
-    suggestions.forEach(
-        suggestion => {
-
-            suggestion.addEventListener(
-                "click",
-                () => {
-
-                    const text =
-                        suggestion.dataset.prompt ||
-                        suggestion.textContent.trim();
-
-
-                    if (!input) {
-                        return;
-                    }
-
-
-                    input.value =
-                        text;
-
-
-                    updateCharacterCount();
-
-                    autoResize();
-
-                    updateSendButtonState();
-
-                    input.focus();
-                }
-            );
-        }
-    );
-}
-
-
-/* ============================================================
-   INPUT PLACEHOLDER EFFECT
-============================================================ */
-
-function updateInputPlaceholder() {
-
-    if (!input) {
-        return;
-    }
-
-
-    if (selectedModel === "openrouter") {
-
-        input.placeholder =
-            "Message Volby Pro...";
-
-    } else {
-
-        input.placeholder =
-            "Message Volby...";
-    }
-}
-
-
-updateInputPlaceholder();
-
-
-/* ============================================================
-   UPDATE PLACEHOLDER WHEN MODEL CHANGES
-============================================================ */
-
-const originalSetSelectedModel =
-    setSelectedModel;
-
-
-/*
- * Keep the model selector and composer
- * synchronized.
- */
-
-setSelectedModel = function(model) {
-
-    originalSetSelectedModel(
-        model
-    );
-
-
-    updateInputPlaceholder();
-
-    updateModelSelectorUI();
-
-    updateSendButtonState();
-};
-
-
-/* ============================================================
-   CHAT HISTORY HELPERS
-============================================================ */
-
-function generateChatId() {
-
-    return (
-        Date.now().toString(36) +
-        "-" +
-        Math.random()
-            .toString(36)
-            .substring(2, 9)
-    );
-}
-
-
-function createChatTitle(text) {
-
-    const clean =
-        String(text || "")
-            .replace(/\s+/g, " ")
-            .trim();
-
-
-    if (!clean) {
-        return "New chat";
-    }
-
-
-    if (clean.length <= 42) {
-        return clean;
-    }
-
-
-    return (
-        clean.substring(0, 42) +
-        "…"
-    );
-}
-
-
-/* ============================================================
-   SAVE CHAT HISTORY
-============================================================ */
-
-function saveChatToHistory() {
-
-    if (!messages.length) {
-        return;
-    }
-
-
-    const firstUserMessage =
-        messages.find(
-            message =>
-                message.role === "user"
-        );
-
-
-    if (!firstUserMessage) {
-        return;
-    }
-
-
-    const chatId =
-        messages.chatId ||
-        generateChatId();
-
-
-    messages.chatId =
-        chatId;
-
-
-    const existingIndex =
-        chatHistory.findIndex(
-            chat =>
-                chat.id === chatId
-        );
-
-
-    const historyItem = {
-
-        id: chatId,
-
-        title:
-            createChatTitle(
-                firstUserMessage.content
-            ),
-
-        messages:
-            messages.map(
-                message => ({
-                    role:
-                        message.role,
-
-                    content:
-                        message.content
-                })
-            ),
-
-        updatedAt:
-            Date.now()
-    };
-
-
-    if (
-        existingIndex >= 0
-    ) {
-
-        chatHistory[
-            existingIndex
-        ] =
-            historyItem;
-
-    } else {
-
-        chatHistory.unshift(
-            historyItem
-        );
-    }
-
-
-    /* --------------------------------------------------------
-       Keep history manageable
-    -------------------------------------------------------- */
-
-    if (
-        chatHistory.length > 50
-    ) {
-
-        chatHistory =
-            chatHistory.slice(
-                0,
-                50
-            );
-    }
-
-
-    setStorage(
-        "volby_chat_history",
-        chatHistory
-    );
-
-
-    renderChatHistory();
-}
-
-
-/* ============================================================
-   RENDER CHAT HISTORY
-============================================================ */
-
-function renderChatHistory() {
-
-    if (!historyList) {
-        return;
-    }
-
-
-    historyList.innerHTML =
-        "";
-
-
-    if (
-        !chatHistory ||
-        chatHistory.length === 0
-    ) {
-
-        if (emptyHistory) {
-
-            emptyHistory.style.display =
-                "";
-        }
-
-        return;
-    }
-
-
-    if (emptyHistory) {
-
-        emptyHistory.style.display =
-            "none";
-    }
-
-
-    chatHistory.forEach(
-        chat => {
-
-            const item =
-                document.createElement(
-                    "button"
-                );
-
-
-            item.type =
-                "button";
-
-
-            item.className =
-                "history-item";
-
-
-            item.dataset.chatId =
-                chat.id;
-
-
-            item.innerHTML = `
-                <span class="history-item-icon">
-                    ◌
-                </span>
-
-                <span class="history-item-content">
-                    <span class="history-item-title">
-                        ${escapeHTML(
-                            chat.title ||
-                            "New chat"
-                        )}
-                    </span>
-                </span>
-
-                <span class="history-item-arrow">
-                    ›
-                </span>
-            `;
-
-
-            item.addEventListener(
-                "click",
-                () => {
-
-                    loadChatFromHistory(
-                        chat.id
+                const check =
+                    button.querySelector(
+                        ".model-option-check"
                     );
 
-                    closeSidebarMenu();
+                if (check) {
+                    check.style.visibility =
+                        active
+                            ? "visible"
+                            : "hidden";
                 }
-            );
-
-
-            historyList.appendChild(
-                item
-            );
-        }
-    );
-}
-
-
-/* ============================================================
-   LOAD CHAT FROM HISTORY
-============================================================ */
-
-function loadChatFromHistory(
-    chatId
-) {
-
-    const chat =
-        chatHistory.find(
-            item =>
-                item.id === chatId
-        );
-
-
-    if (!chat) {
-        return;
+            });
     }
 
+    /* ========================================================
+       THEME
+    ======================================================== */
 
-    messages =
-        Array.isArray(
-            chat.messages
-        )
-            ? chat.messages.map(
-                message => ({
-                    role:
-                        message.role,
+    function setTheme(theme) {
 
-                    content:
-                        message.content
-                })
-            )
-            : [];
-
-
-    messages.chatId =
-        chat.id;
-
-
-    if (messagesContainer) {
-
-        messagesContainer.innerHTML =
-            "";
-    }
-
-
-    if (
-        !messages.length
-    ) {
-
-        if (
-            messagesContainer &&
-            welcomeScreen
-        ) {
-
-            messagesContainer.appendChild(
-                welcomeScreen
-            );
-
-            welcomeScreen.style.display =
-                "";
+        if (!theme) {
+            theme = "midnight";
         }
 
-        return;
-    }
-
-
-    /* --------------------------------------------------------
-       Render every stored message
-    -------------------------------------------------------- */
-
-    messages.forEach(
-        message => {
-
-            if (
-                message.role === "user"
-            ) {
-
-                appendUserMessage(
-                    message.content
-                );
-
-            } else if (
-                message.role === "assistant"
-            ) {
-
-                appendAIMessage(
-                    message.content
-                );
-            }
+        if (body) {
+            body.dataset.theme =
+                theme;
         }
-    );
-
-
-    scrollToBottom();
-}
-
-
-/* ============================================================
-   DELETE ALL CHAT HISTORY
-============================================================ */
-
-function clearChatHistory() {
-
-    const confirmed =
-        confirm(
-            "Clear all Volby chat history?"
-        );
-
-
-    if (!confirmed) {
-        return;
-    }
-
-
-    chatHistory =
-        [];
-
-
-    setStorage(
-        "volby_chat_history",
-        []
-    );
-
-
-    renderChatHistory();
-
-    startNewChat();
-}
-
-
-/* ============================================================
-   ESCAPE HTML
-============================================================ */
-
-function escapeHTML(value) {
-
-    return String(
-        value ?? ""
-    )
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&#039;"
-        );
-}
-
-
-/* ============================================================
-   SCROLL TO BOTTOM
-============================================================ */
-
-function scrollToBottom(
-    smooth = true
-) {
-
-    if (!messagesContainer) {
-        return;
-    }
-
-
-    messagesContainer.scrollTo({
-
-        top:
-            messagesContainer.scrollHeight,
-
-        behavior:
-            smooth
-                ? "smooth"
-                : "auto"
-    });
-}
-
-
-/* ============================================================
-   INITIAL HISTORY RENDER
-============================================================ */
-
-renderChatHistory();
-
-
-/* ============================================================
-   INITIAL UI SYNC
-============================================================ */
-
-updateCharacterCount();
-
-autoResize();
-
-updateSendButtonState();
-
-updateInputPlaceholder();
-
-
-/* ============================================================
-   MODEL SELECTOR INITIALIZATION
-============================================================ */
-
-if (
-    document.readyState === "loading"
-) {
-
-    document.addEventListener(
-        "DOMContentLoaded",
-        () => {
-
-            createModelSelector();
-
-            updateModelSelectorUI();
-        }
-    );
-
-} else {
-
-    createModelSelector();
-
-    updateModelSelectorUI();
-}
-/* ============================================================
-   SCRIPT.JS — CHUNK 4A/6
-   VOLBY AI — CHAT HISTORY + UI HELPERS
-============================================================ */
-
-
-/* ============================================================
-   CHAT HISTORY HELPERS
-============================================================ */
-
-function getChatTitle(chatMessages) {
-
-    const firstUserMessage =
-        chatMessages.find(
-            message =>
-                message.role === "user"
-        );
-
-    if (!firstUserMessage) {
-        return "New conversation";
-    }
-
-    let title =
-        String(
-            firstUserMessage.content || ""
-        ).trim();
-
-    if (!title) {
-        return "New conversation";
-    }
-
-    title =
-        title.replace(/\s+/g, " ");
-
-    if (title.length > 55) {
-        title =
-            title.substring(0, 55).trim() + "...";
-    }
-
-    return title;
-}
-
-
-/* ============================================================
-   CREATE CHAT OBJECT
-============================================================ */
-
-function createChatObject() {
-
-    return {
-
-        id:
-            window.volbyCurrentChatId ||
-            Date.now(),
-
-        title:
-            getChatTitle(messages),
-
-        messages:
-            messages.map(message => ({
-                role:
-                    message.role,
-
-                content:
-                    message.content
-            })),
-
-        model:
-            selectedModel,
-
-        updatedAt:
-            Date.now()
-
-    };
-
-}
-
-
-/* ============================================================
-   SAVE CHAT HISTORY
-============================================================ */
-
-function saveChatHistory() {
-
-    if (!Array.isArray(chatHistory)) {
-        chatHistory = [];
-    }
-
-    if (!messages.length) {
-        return;
-    }
-
-    const chat =
-        createChatObject();
-
-    window.volbyCurrentChatId =
-        chat.id;
-
-    const existingIndex =
-        chatHistory.findIndex(
-            item =>
-                item.id === chat.id
-        );
-
-    if (existingIndex >= 0) {
-
-        chatHistory[existingIndex] =
-            chat;
-
-    } else {
-
-        chatHistory.unshift(
-            chat
-        );
-
-    }
-
-    /* Keep the newest 50 conversations */
-
-    chatHistory =
-        chatHistory
-            .sort(
-                (a, b) =>
-                    (b.updatedAt || 0) -
-                    (a.updatedAt || 0)
-            )
-            .slice(0, 50);
-
-    setStorage(
-        "volby_chat_history",
-        chatHistory
-    );
-
-    renderChatHistory();
-
-}
-
-
-/* ============================================================
-   SAVE CURRENT CHAT
-============================================================ */
-
-function saveCurrentChat() {
-
-    saveChatHistory();
-
-}
-
-
-/* ============================================================
-   CREATE HISTORY ITEM
-============================================================ */
-
-function createHistoryItem(chat) {
-
-    const item =
-        document.createElement("button");
-
-    item.type =
-        "button";
-
-    item.className =
-        "history-item";
-
-    item.dataset.chatId =
-        chat.id;
-
-
-    if (
-        chat.id ===
-        window.volbyCurrentChatId
-    ) {
-
-        item.classList.add(
-            "active"
-        );
-
-    }
-
-
-    const icon =
-        document.createElement("span");
-
-    icon.className =
-        "history-item-icon";
-
-    icon.textContent =
-        "◌";
-
-
-    const title =
-        document.createElement("span");
-
-    title.className =
-        "history-item-title";
-
-    title.textContent =
-        chat.title ||
-        "Conversation";
-
-
-    item.appendChild(
-        icon
-    );
-
-    item.appendChild(
-        title
-    );
-
-
-    /* -----------------------------------------
-       Click
-    ----------------------------------------- */
-
-    item.addEventListener(
-        "click",
-        () => {
-
-            loadChat(
-                chat.id
-            );
-
-        }
-    );
-
-
-    /* -----------------------------------------
-       Long press / context menu
-    ----------------------------------------- */
-
-    item.addEventListener(
-        "contextmenu",
-        event => {
-
-            event.preventDefault();
-
-            const confirmed =
-                confirm(
-                    "Delete this conversation?"
-                );
-
-            if (confirmed) {
-
-                deleteChat(
-                    chat.id
-                );
-
-            }
-
-        }
-    );
-
-
-    return item;
-
-}
-
-
-/* ============================================================
-   RENDER CHAT HISTORY
-============================================================ */
-
-function renderChatHistory() {
-
-    if (!historyList) {
-        return;
-    }
-
-
-    historyList.innerHTML =
-        "";
-
-
-    if (
-        !Array.isArray(chatHistory) ||
-        chatHistory.length === 0
-    ) {
-
-        if (emptyHistory) {
-
-            emptyHistory.style.display =
-                "";
-
-            historyList.appendChild(
-                emptyHistory
-            );
-
-        }
-
-        return;
-
-    }
-
-
-    if (emptyHistory) {
-
-        emptyHistory.style.display =
-            "none";
-
-    }
-
-
-    chatHistory
-        .sort(
-            (a, b) =>
-                (b.updatedAt || 0) -
-                (a.updatedAt || 0)
-        )
-        .forEach(chat => {
-
-            historyList.appendChild(
-                createHistoryItem(chat)
-            );
-
-        });
-
-}
-
-
-/* ============================================================
-   LOAD CHAT
-============================================================ */
-
-function loadChat(chatId) {
-
-    const chat =
-        chatHistory.find(
-            item =>
-                item.id === chatId
-        );
-
-
-    if (!chat) {
-        return;
-    }
-
-
-    window.volbyCurrentChatId =
-        chat.id;
-
-
-    messages =
-        Array.isArray(chat.messages)
-            ? chat.messages.map(
-                message => ({
-                    role:
-                        message.role,
-
-                    content:
-                        message.content
-                })
-            )
-            : [];
-
-
-    /* -----------------------------------------
-       Restore selected model
-    ----------------------------------------- */
-
-    if (
-        chat.model === "openrouter" ||
-        chat.model === "groq"
-    ) {
-
-        selectedModel =
-            chat.model;
 
         try {
-
             localStorage.setItem(
-                MODEL_STORAGE_KEY,
-                selectedModel
+                THEME_STORAGE_KEY,
+                theme
             );
-
         } catch (error) {
-
             console.error(
-                "Model restore error:",
+                "Theme storage error:",
                 error
             );
-
         }
-
-    }
-
-
-    updateModelSelectorUI();
-
-
-    /* -----------------------------------------
-       Rebuild message area
-    ----------------------------------------- */
-
-    messagesContainer.innerHTML =
-        "";
-
-
-    if (!messages.length) {
-
-        messagesContainer.appendChild(
-            welcomeScreen
-        );
-
-        welcomeScreen.style.display =
-            "";
-
-    } else {
-
-        if (welcomeScreen) {
-
-            welcomeScreen.style.display =
-                "none";
-
-        }
-
-
-        messages.forEach(
-            message => {
-
-                addMessageToUI(
-                    message.role,
-                    message.content
-                );
-
-            }
-        );
-
-    }
-
-
-    renderChatHistory();
-
-
-    closeSidebarMenu();
-
-
-    requestAnimationFrame(
-        () => {
-
-            scrollToBottom();
-
-        }
-    );
-
-}
-
-
-/* ============================================================
-   DELETE CHAT
-============================================================ */
-
-function deleteChat(chatId) {
-
-    chatHistory =
-        chatHistory.filter(
-            chat =>
-                chat.id !== chatId
-        );
-
-
-    setStorage(
-        "volby_chat_history",
-        chatHistory
-    );
-
-
-    if (
-        window.volbyCurrentChatId ===
-        chatId
-    ) {
-
-        window.volbyCurrentChatId =
-            null;
-
-        messages =
-            [];
-
-        messagesContainer.innerHTML =
-            "";
-
-        messagesContainer.appendChild(
-            welcomeScreen
-        );
-
-        welcomeScreen.style.display =
-            "";
-
-    }
-
-
-    renderChatHistory();
-
-}
-
-
-/* ============================================================
-   NEW CHAT
-============================================================ */
-
-function startNewChat() {
-
-    window.volbyCurrentChatId =
-        null;
-
-    messages =
-        [];
-
-
-    messagesContainer.innerHTML =
-        "";
-
-
-    messagesContainer.appendChild(
-        welcomeScreen
-    );
-
-
-    welcomeScreen.style.display =
-        "";
-
-
-    input.value =
-        "";
-
-
-    updateCharacterCount();
-
-    autoResize();
-
-
-    renderChatHistory();
-
-
-    closeSidebarMenu();
-
-
-    input.focus();
-
-}
-
-
-/* ============================================================
-   NEW CHAT BUTTON
-============================================================ */
-
-if (newChatButton) {
-
-    newChatButton.addEventListener(
-        "click",
-        startNewChat
-    );
-
-}
-
-
-/* ============================================================
-   SIDEBAR
-============================================================ */
-
-function openSidebar() {
-
-    if (sidebar) {
-
-        sidebar.classList.add(
-            "open"
-        );
-
-    }
-
-    if (sidebarOverlay) {
-
-        sidebarOverlay.classList.add(
-            "active"
-        );
-
-    }
-
-    document.body.classList.add(
-        "sidebar-open"
-    );
-
-}
-
-
-function closeSidebarMenu() {
-
-    if (sidebar) {
-
-        sidebar.classList.remove(
-            "open"
-        );
-
-    }
-
-    if (sidebarOverlay) {
-
-        sidebarOverlay.classList.remove(
-            "active"
-        );
-
-    }
-
-    document.body.classList.remove(
-        "sidebar-open"
-    );
-
-}
-
-
-if (menuButton) {
-
-    menuButton.addEventListener(
-        "click",
-        openSidebar
-    );
-
-}
-
-
-if (closeSidebar) {
-
-    closeSidebar.addEventListener(
-        "click",
-        closeSidebarMenu
-    );
-
-}
-
-
-if (sidebarOverlay) {
-
-    sidebarOverlay.addEventListener(
-        "click",
-        closeSidebarMenu
-    );
-
-}
-/* ============================================================
-   SCRIPT.JS — CHUNK 4B/6
-   VOLBY AI — INPUT + UI INTERACTIONS
-============================================================ */
-
-
-/* ============================================================
-   INPUT CHARACTER COUNT
-============================================================ */
-
-function updateCharacterCount() {
-
-    if (!characterCount || !input) {
-        return;
-    }
-
-    characterCount.textContent =
-        `${input.value.length} / 10000`;
-
-}
-
-
-/* ============================================================
-   AUTO RESIZE TEXTAREA
-============================================================ */
-
-function autoResize() {
-
-    if (!input) {
-        return;
-    }
-
-    input.style.height =
-        "auto";
-
-    const newHeight =
-        Math.min(
-            input.scrollHeight,
-            180
-        );
-
-    input.style.height =
-        newHeight + "px";
-
-}
-
-
-/* ============================================================
-   INPUT EVENTS
-============================================================ */
-
-if (input) {
-
-    input.addEventListener(
-        "input",
-        () => {
-
-            updateCharacterCount();
-
-            autoResize();
-
-        }
-    );
-
-}
-
-
-/* ============================================================
-   SUGGESTION BUTTONS
-============================================================ */
-
-if (suggestions) {
-
-    suggestions.forEach(
-        suggestion => {
-
-            suggestion.addEventListener(
-                "click",
-                () => {
-
-                    const prompt =
-                        suggestion.dataset.prompt ||
-                        suggestion.textContent.trim();
-
-
-                    if (!input) {
-                        return;
-                    }
-
-
-                    input.value =
-                        prompt;
-
-
-                    updateCharacterCount();
-
-                    autoResize();
-
-                    input.focus();
-
-                }
-            );
-
-        }
-    );
-
-}
-
-
-/* ============================================================
-   THEME SYSTEM
-============================================================ */
-
-function setTheme(theme) {
-
-    if (!theme) {
-        return;
-    }
-
-
-    body.dataset.theme =
-        theme;
-
-
-    try {
-
-        localStorage.setItem(
-            "volby_theme",
-            theme
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Theme storage error:",
-            error
-        );
-
-    }
-
-
-    if (themeButtons) {
 
         themeButtons.forEach(
             button => {
@@ -3511,51 +531,29 @@ function setTheme(theme) {
                     button.dataset.theme ===
                         theme
                 );
-
             }
         );
-
     }
 
-}
+    function loadTheme() {
 
+        let theme =
+            "midnight";
 
-/* ============================================================
-   LOAD SAVED THEME
-============================================================ */
+        try {
+            theme =
+                localStorage.getItem(
+                    THEME_STORAGE_KEY
+                ) || "midnight";
+        } catch (error) {
+            console.error(
+                "Theme read error:",
+                error
+            );
+        }
 
-let savedTheme =
-    "midnight";
-
-
-try {
-
-    savedTheme =
-        localStorage.getItem(
-            "volby_theme"
-        ) ||
-        "midnight";
-
-} catch (error) {
-
-    console.error(
-        "Theme read error:",
-        error
-    );
-
-}
-
-
-setTheme(
-    savedTheme
-);
-
-
-/* ============================================================
-   THEME BUTTONS
-============================================================ */
-
-if (themeButtons) {
+        setTheme(theme);
+    }
 
     themeButtons.forEach(
         button => {
@@ -3563,2853 +561,2016 @@ if (themeButtons) {
             button.addEventListener(
                 "click",
                 () => {
-
                     setTheme(
                         button.dataset.theme
                     );
-
                 }
             );
-
         }
     );
 
-}
+    /* ========================================================
+       SIDEBAR
+    ======================================================== */
 
+    function openSidebar() {
 
-/* ============================================================
-   ABOUT MODAL
-============================================================ */
-
-function openAboutModal() {
-
-    if (!aboutModal) {
-        return;
-    }
-
-    aboutModal.classList.add(
-        "open"
-    );
-
-    aboutModal.setAttribute(
-        "aria-hidden",
-        "false"
-    );
-
-}
-
-
-function closeAboutModal() {
-
-    if (!aboutModal) {
-        return;
-    }
-
-    aboutModal.classList.remove(
-        "open"
-    );
-
-    aboutModal.setAttribute(
-        "aria-hidden",
-        "true"
-    );
-
-}
-
-
-if (aboutButton) {
-
-    aboutButton.addEventListener(
-        "click",
-        openAboutModal
-    );
-
-}
-
-
-if (closeAbout) {
-
-    closeAbout.addEventListener(
-        "click",
-        closeAboutModal
-    );
-
-}
-
-
-if (aboutModal) {
-
-    aboutModal.addEventListener(
-        "click",
-        event => {
-
-            if (
-                event.target ===
-                aboutModal
-            ) {
-
-                closeAboutModal();
-
-            }
-
-        }
-    );
-
-}
-
-
-/* ============================================================
-   ESC KEY
-============================================================ */
-
-document.addEventListener(
-    "keydown",
-    event => {
-
-        if (
-            event.key === "Escape"
-        ) {
-
-            closeAboutModal();
-
-            closeSidebarMenu();
-
+        if (sidebar) {
+            sidebar.classList.add(
+                "open"
+            );
         }
 
-    }
-);
-
-
-/* ============================================================
-   SCROLL HELPERS
-============================================================ */
-
-function scrollToBottom() {
-
-    if (!messagesContainer) {
-        return;
-    }
-
-
-    requestAnimationFrame(
-        () => {
-
-            messagesContainer.scrollTo({
-
-                top:
-                    messagesContainer.scrollHeight,
-
-                behavior:
-                    "smooth"
-
-            });
-
+        if (sidebarOverlay) {
+            sidebarOverlay.classList.add(
+                "active"
+            );
         }
-    );
 
-}
-
-
-/* ============================================================
-   LOADING / THINKING UI
-============================================================ */
-
-function addLoadingMessage() {
-
-    if (!messagesContainer) {
-        return null;
+        body.classList.add(
+            "sidebar-open"
+        );
     }
 
-
-    const wrapper =
-        document.createElement("div");
-
-
-    wrapper.className =
-        "message-wrapper loading-wrapper";
-
-
-    wrapper.dataset.role =
-        "assistant";
-
-
-    /* -----------------------------------------
-       Avatar
-    ----------------------------------------- */
-
-    const avatar =
-        document.createElement("div");
-
-
-    avatar.className =
-        "message-avatar";
-
-
-    const logo =
-        document.createElement("img");
-
-
-    logo.src =
-        "volby-logo.png";
-
-
-    logo.alt =
-        "Volby";
-
-
-    logo.className =
-        "message-avatar-logo";
-
-
-    avatar.appendChild(
-        logo
-    );
-
-
-    /* -----------------------------------------
-       Content
-    ----------------------------------------- */
-
-    const contentWrapper =
-        document.createElement("div");
-
-
-    contentWrapper.className =
-        "message-content-wrapper";
-
-
-    const header =
-        document.createElement("div");
-
-
-    header.className =
-        "message-header";
-
-
-    const name =
-        document.createElement("span");
-
-
-    name.className =
-        "message-name";
-
-
-    name.textContent =
-        "Volby";
-
-
-    header.appendChild(
-        name
-    );
-
-
-    contentWrapper.appendChild(
-        header
-    );
-
-
-    /* -----------------------------------------
-       Thinking bubble
-    ----------------------------------------- */
-
-    const bubble =
-        document.createElement("div");
-
-
-    bubble.className =
-        "message-bubble thinking-bubble";
-
-
-    const thinkingText =
-        document.createElement("span");
-
-
-    thinkingText.className =
-        "thinking-text";
-
-
-    thinkingText.textContent =
-        "Thinking";
-
-
-    bubble.appendChild(
-        thinkingText
-    );
-
-
-    const dots =
-        document.createElement("span");
-
-
-    dots.className =
-        "thinking-dots";
-
-
-    dots.innerHTML =
-        "<i></i><i></i><i></i>";
-
-
-    bubble.appendChild(
-        dots
-    );
-
-
-    contentWrapper.appendChild(
-        bubble
-    );
-
-
-    wrapper.appendChild(
-        avatar
-    );
-
-
-    wrapper.appendChild(
-        contentWrapper
-    );
-
-
-    messagesContainer.appendChild(
-        wrapper
-    );
-
-
-    scrollToBottom();
-
-
-    return wrapper;
-
-}
-
-
-/* ============================================================
-   FRIENDLY BACKEND ERRORS
-============================================================ */
-
-function getFriendlyErrorMessage(error) {
-
-    const raw =
-        String(
-            error?.message ||
-            ""
+    function closeSidebarMenu() {
+
+        if (sidebar) {
+            sidebar.classList.remove(
+                "open"
+            );
+        }
+
+        if (sidebarOverlay) {
+            sidebarOverlay.classList.remove(
+                "active"
+            );
+        }
+
+        body.classList.remove(
+            "sidebar-open"
+        );
+    }
+
+    if (menuButton) {
+        menuButton.addEventListener(
+            "click",
+            openSidebar
+        );
+    }
+
+    if (closeSidebarButton) {
+        closeSidebarButton.addEventListener(
+            "click",
+            closeSidebarMenu
+        );
+    }
+
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener(
+            "click",
+            closeSidebarMenu
+        );
+    }
+
+    /* ========================================================
+       ABOUT MODAL
+    ======================================================== */
+
+    function openAboutModal() {
+
+        if (!aboutModal) {
+            return;
+        }
+
+        aboutModal.classList.add(
+            "open"
         );
 
+        aboutModal.setAttribute(
+            "aria-hidden",
+            "false"
+        );
+    }
 
-    const lower =
-        raw.toLowerCase();
+    function closeAboutModal() {
 
+        if (!aboutModal) {
+            return;
+        }
 
-    if (
-        lower.includes(
-            "failed to fetch"
-        ) ||
-        lower.includes(
-            "networkerror"
-        ) ||
-        lower.includes(
-            "network error"
-        )
-    ) {
-
-        return (
-            "Sorry, I couldn't connect to Volby right now. " +
-            "Please check your internet connection and try again."
+        aboutModal.classList.remove(
+            "open"
         );
 
-    }
-
-
-    if (
-        lower.includes(
-            "model_not_found"
-        ) ||
-        lower.includes(
-            "model does not exist"
-        )
-    ) {
-
-        return (
-            "The selected Volby model is currently unavailable. " +
-            "Please switch to another model and try again."
+        aboutModal.setAttribute(
+            "aria-hidden",
+            "true"
         );
-
     }
 
-
-    if (
-        lower.includes(
-            "500"
-        )
-    ) {
-
-        return (
-            "Volby's server encountered an error. " +
-            "Please try again in a moment."
+    if (aboutButton) {
+        aboutButton.addEventListener(
+            "click",
+            openAboutModal
         );
-
     }
 
-
-    if (raw) {
-        return raw;
+    if (closeAbout) {
+        closeAbout.addEventListener(
+            "click",
+            closeAboutModal
+        );
     }
 
-
-    return (
-        "Something went wrong while connecting to Volby."
-    );
-
-}
-
-
-/* ============================================================
-   SEND BUTTON STATE
-============================================================ */
-
-function setSendingState(isSending) {
-
-    if (!sendButton) {
-        return;
-    }
-
-
-    sendButton.disabled =
-        Boolean(isSending);
-
-
-    sendButton.classList.toggle(
-        "sending",
-        Boolean(isSending)
-    );
-
-}
-
-
-/* ============================================================
-   INITIAL INPUT STATE
-============================================================ */
-
-updateCharacterCount();
-
-autoResize();
-
-
-/* ============================================================
-   PREVENT ACCIDENTAL FORM SUBMISSION
-============================================================ */
-
-if (input) {
-
-    input.addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key === "Enter" &&
-                !event.shiftKey
-            ) {
-
-                event.preventDefault();
+    if (aboutModal) {
+        aboutModal.addEventListener(
+            "click",
+            event => {
 
                 if (
-                    typeof sendMessage ===
-                    "function"
+                    event.target ===
+                    aboutModal
+                ) {
+                    closeAboutModal();
+                }
+            }
+        );
+    }
+
+    /* ========================================================
+       INPUT
+    ======================================================== */
+
+    function updateCharacterCount() {
+
+        if (
+            !characterCount ||
+            !input
+        ) {
+            return;
+        }
+
+        const length =
+            input.value.length;
+
+        characterCount.textContent =
+            `${length.toLocaleString()} / 10,000`;
+
+        characterCount.classList.toggle(
+            "warning",
+            length >= 9500
+        );
+    }
+
+    function autoResize() {
+
+        if (!input) {
+            return;
+        }
+
+        input.style.height =
+            "auto";
+
+        input.style.height =
+            Math.min(
+                input.scrollHeight,
+                180
+            ) + "px";
+    }
+
+    function updateSendButtonState() {
+
+        if (!sendButton) {
+            return;
+        }
+
+        const hasText =
+            Boolean(
+                input &&
+                input.value.trim()
+            );
+
+        sendButton.disabled =
+            isSending ||
+            !hasText;
+
+        sendButton.classList.toggle(
+            "ready",
+            hasText &&
+            !isSending
+        );
+
+        sendButton.classList.toggle(
+            "sending",
+            isSending
+        );
+    }
+
+    function setSendingState(state) {
+
+        isSending =
+            Boolean(state);
+
+        updateSendButtonState();
+    }
+
+    function updateInputPlaceholder() {
+
+        if (!input) {
+            return;
+        }
+
+        input.placeholder =
+            selectedModel === "openrouter"
+                ? "Message Volby Pro..."
+                : "Message Volby...";
+    }
+
+    if (input) {
+
+        input.addEventListener(
+            "input",
+            () => {
+                updateCharacterCount();
+                autoResize();
+                updateSendButtonState();
+            }
+        );
+
+        input.addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.key === "Enter" &&
+                    !event.shiftKey
                 ) {
 
-                    sendMessage();
+                    event.preventDefault();
 
+                    if (
+                        !isSending &&
+                        input.value.trim()
+                    ) {
+                        sendMessage();
+                    }
                 }
-
             }
+        );
 
-        }
-    );
+        input.addEventListener(
+            "focus",
+            () => {
+                body.classList.add(
+                    "input-focused"
+                );
+            }
+        );
 
-}
-
-
-/* ============================================================
-   MOBILE KEYBOARD FRIENDLY BEHAVIOUR
-============================================================ */
-
-if (input) {
-
-    input.addEventListener(
-        "focus",
-        () => {
-
-            document.body.classList.add(
-                "input-focused"
-            );
-
-        }
-    );
-
-
-    input.addEventListener(
-        "blur",
-        () => {
-
-            document.body.classList.remove(
-                "input-focused"
-            );
-
-        }
-    );
-
-}
-
-
-/* ============================================================
-   INITIAL HISTORY
-============================================================ */
-
-renderChatHistory();
-
-
-/* ============================================================
-   INITIAL MODEL SELECTOR
-============================================================ */
-
-createModelSelector();
-
-
-/* ============================================================
-   INITIAL FOCUS
-============================================================ */
-
-if (
-    input &&
-    window.innerWidth > 700
-) {
-
-    setTimeout(
-        () => {
-
-            input.focus();
-
-        },
-        300
-    );
-
-}
-/* ============================================================
-   SCRIPT.JS — CHUNK 5A/6
-   VOLBY AI — MARKDOWN + MESSAGE RENDERING
-============================================================ */
-
-
-/* ============================================================
-   MARKDOWN RESPONSE FORMATTER
-============================================================ */
-
-function formatAIResponse(content) {
-
-    const fragment =
-        document.createDocumentFragment();
-
-    const parts =
-        String(content)
-            .split(/(```[\s\S]*?```)/g);
-
-
-    parts.forEach(part => {
-
-        if (
-            part.startsWith("```") &&
-            part.endsWith("```")
-        ) {
-
-            createCodeBlock(
-                part,
-                fragment
-            );
-
-        } else {
-
-            createTextContent(
-                part,
-                fragment
-            );
-
-        }
-
-    });
-
-
-    return fragment;
-
-}
-
-
-/* ============================================================
-   TEXT CONTENT
-============================================================ */
-
-function createTextContent(
-    text,
-    container
-) {
-
-    if (
-        !text ||
-        text.trim() === ""
-    ) {
-
-        return;
-
+        input.addEventListener(
+            "blur",
+            () => {
+                body.classList.remove(
+                    "input-focused"
+                );
+            }
+        );
     }
 
-
-    const lines =
-        text.split("\n");
-
-
-    let currentList = null;
-
-
-    lines.forEach(line => {
-
-        const trimmed =
-            line.trim();
-
-
-        /* -----------------------------------------
-           BULLET LIST
-        ----------------------------------------- */
-
-        if (
-            trimmed.startsWith("- ") ||
-            trimmed.startsWith("* ")
-        ) {
-
-            if (
-                !currentList ||
-                currentList.tagName !== "UL"
-            ) {
-
-                currentList =
-                    document.createElement("ul");
-
-                currentList.className =
-                    "ai-list";
-
-                container.appendChild(
-                    currentList
-                );
-
-            }
-
-
-            const li =
-                document.createElement("li");
-
-
-            li.appendChild(
-                formatInlineMarkdown(
-                    trimmed.substring(2)
-                )
-            );
-
-
-            currentList.appendChild(
-                li
-            );
-
-
-            return;
-
-        }
-
-
-        /* -----------------------------------------
-           NUMBERED LIST
-        ----------------------------------------- */
-
-        const numbered =
-            trimmed.match(
-                /^\d+\.\s+(.*)/
-            );
-
-
-        if (numbered) {
-
-            if (
-                !currentList ||
-                currentList.tagName !== "OL"
-            ) {
-
-                currentList =
-                    document.createElement("ol");
-
-                currentList.className =
-                    "ai-list";
-
-                container.appendChild(
-                    currentList
-                );
-
-            }
-
-
-            const li =
-                document.createElement("li");
-
-
-            li.appendChild(
-                formatInlineMarkdown(
-                    numbered[1]
-                )
-            );
-
-
-            currentList.appendChild(
-                li
-            );
-
-
-            return;
-
-        }
-
-
-        currentList = null;
-
-
-        /* -----------------------------------------
-           HEADINGS
-        ----------------------------------------- */
-
-        if (
-            trimmed.startsWith("### ")
-        ) {
-
-            const heading =
-                document.createElement("h4");
-
-
-            heading.className =
-                "ai-heading";
-
-
-            heading.appendChild(
-                formatInlineMarkdown(
-                    trimmed.substring(4)
-                )
-            );
-
-
-            container.appendChild(
-                heading
-            );
-
-
-            return;
-
-        }
-
-
-        if (
-            trimmed.startsWith("## ")
-        ) {
-
-            const heading =
-                document.createElement("h3");
-
-
-            heading.className =
-                "ai-heading";
-
-
-            heading.appendChild(
-                formatInlineMarkdown(
-                    trimmed.substring(3)
-                )
-            );
-
-
-            container.appendChild(
-                heading
-            );
-
-
-            return;
-
-        }
-
-
-        if (
-            trimmed.startsWith("# ")
-        ) {
-
-            const heading =
-                document.createElement("h2");
-
-
-            heading.className =
-                "ai-heading";
-
-
-            heading.appendChild(
-                formatInlineMarkdown(
-                    trimmed.substring(2)
-                )
-            );
-
-
-            container.appendChild(
-                heading
-            );
-
-
-            return;
-
-        }
-
-
-        /* -----------------------------------------
-           EMPTY LINE
-        ----------------------------------------- */
-
-        if (
-            trimmed === ""
-        ) {
-
-            const spacer =
-                document.createElement("div");
-
-
-            spacer.className =
-                "text-spacer";
-
-
-            container.appendChild(
-                spacer
-            );
-
-
-            return;
-
-        }
-
-
-        /* -----------------------------------------
-           NORMAL PARAGRAPH
-        ----------------------------------------- */
-
-        const paragraph =
-            document.createElement("p");
-
-
-        paragraph.className =
-            "ai-paragraph";
-
-
-        paragraph.appendChild(
-            formatInlineMarkdown(
-                line
+    /* ========================================================
+       HELPERS
+    ======================================================== */
+
+    function escapeHTML(value) {
+
+        return String(
+            value ?? ""
+        )
+            .replace(
+                /&/g,
+                "&amp;"
             )
-        );
-
-
-        container.appendChild(
-            paragraph
-        );
-
-    });
-
-}
-
-
-/* ============================================================
-   INLINE MARKDOWN
-============================================================ */
-
-function formatInlineMarkdown(text) {
-
-    const fragment =
-        document.createDocumentFragment();
-
-
-    const value =
-        String(text);
-
-
-    /*
-       Handle bold, inline code and italic text
-       without injecting raw HTML.
-    */
-
-    const parts =
-        value.split(
-            /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g
-        );
-
-
-    parts.forEach(part => {
-
-        if (
-            part.startsWith("`") &&
-            part.endsWith("`")
-        ) {
-
-            const code =
-                document.createElement("code");
-
-
-            code.className =
-                "inline-code";
-
-
-            code.textContent =
-                part.substring(
-                    1,
-                    part.length - 1
-                );
-
-
-            fragment.appendChild(
-                code
-            );
-
-
-            return;
-
-        }
-
-
-        if (
-            part.startsWith("**") &&
-            part.endsWith("**")
-        ) {
-
-            const bold =
-                document.createElement("strong");
-
-
-            bold.textContent =
-                part.substring(
-                    2,
-                    part.length - 2
-                );
-
-
-            fragment.appendChild(
-                bold
-            );
-
-
-            return;
-
-        }
-
-
-        if (
-            part.startsWith("*") &&
-            part.endsWith("*") &&
-            part.length > 2
-        ) {
-
-            const italic =
-                document.createElement("em");
-
-
-            italic.textContent =
-                part.substring(
-                    1,
-                    part.length - 1
-                );
-
-
-            fragment.appendChild(
-                italic
-            );
-
-
-            return;
-
-        }
-
-
-        fragment.appendChild(
-            document.createTextNode(
-                part
+            .replace(
+                /</g,
+                "&lt;"
             )
-        );
-
-    });
-
-
-    return fragment;
-
-}
-
-
-/* ============================================================
-   CODE BLOCK
-============================================================ */
-
-function createCodeBlock(
-    codePart,
-    container
-) {
-
-    let code =
-        codePart
-            .replace(/^```/, "")
-            .replace(/```$/, "");
-
-
-    let language =
-        "Code";
-
-
-    const firstNewLine =
-        code.indexOf("\n");
-
-
-    if (
-        firstNewLine !== -1
-    ) {
-
-        const possibleLanguage =
-            code
-                .substring(
-                    0,
-                    firstNewLine
-                )
-                .trim();
-
-
-        if (
-            /^[a-zA-Z0-9+#._-]+$/.test(
-                possibleLanguage
+            .replace(
+                />/g,
+                "&gt;"
             )
-        ) {
-
-            language =
-                possibleLanguage;
-
-
-            code =
-                code.substring(
-                    firstNewLine + 1
-                );
-
-        }
-
+            .replace(
+                /"/g,
+                "&quot;"
+            )
+            .replace(
+                /'/g,
+                "&#039;"
+            );
     }
 
+    function generateId(prefix) {
 
-    code =
-        code.trim();
+        return (
+            prefix +
+            "_" +
+            Date.now().toString(36) +
+            "_" +
+            Math.random()
+                .toString(36)
+                .slice(2, 10)
+        );
+    }
 
+    function safeText(value) {
+        return String(
+            value ?? ""
+        );
+    }
 
-    /* -----------------------------------------
-       CODE WRAPPER
-    ----------------------------------------- */
+    function scrollToBottom(
+        smooth = true
+    ) {
 
-    const wrapper =
-        document.createElement("div");
+        if (!messagesContainer) {
+            return;
+        }
 
+        requestAnimationFrame(
+            () => {
 
-    wrapper.className =
-        "code-block";
+                messagesContainer.scrollTo({
+                    top:
+                        messagesContainer.scrollHeight,
+                    behavior:
+                        smooth
+                            ? "smooth"
+                            : "auto"
+                });
+            }
+        );
+    }
 
+    /* ========================================================
+       MARKDOWN RENDERING
+    ======================================================== */
 
-    /* -----------------------------------------
-       HEADER
-    ----------------------------------------- */
+    function formatInlineMarkdown(text) {
 
-    const header =
-        document.createElement("div");
+        const fragment =
+            document.createDocumentFragment();
 
+        const parts =
+            String(text)
+                .split(
+                    /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g
+                );
 
-    header.className =
-        "code-header";
+        parts.forEach(part => {
 
+            if (
+                part.startsWith("`") &&
+                part.endsWith("`")
+            ) {
 
-    const languageLabel =
-        document.createElement("span");
+                const code =
+                    document.createElement(
+                        "code"
+                    );
 
+                code.className =
+                    "inline-code";
 
-    languageLabel.className =
-        "code-language";
+                code.textContent =
+                    part.slice(
+                        1,
+                        -1
+                    );
 
-
-    languageLabel.textContent =
-        language;
-
-
-    const copyButton =
-        document.createElement("button");
-
-
-    copyButton.type =
-        "button";
-
-
-    copyButton.className =
-        "code-copy-button";
-
-
-    copyButton.textContent =
-        "Copy";
-
-
-    /* -----------------------------------------
-       COPY CODE
-    ----------------------------------------- */
-
-    copyButton.addEventListener(
-        "click",
-        async () => {
-
-            try {
-
-                await navigator.clipboard.writeText(
+                fragment.appendChild(
                     code
                 );
 
+                return;
+            }
 
-                copyButton.textContent =
-                    "Copied!";
+            if (
+                part.startsWith("**") &&
+                part.endsWith("**")
+            ) {
 
-
-                copyButton.classList.add(
-                    "copied"
-                );
-
-
-                setTimeout(
-                    () => {
-
-                        copyButton.textContent =
-                            "Copy";
-
-
-                        copyButton.classList.remove(
-                            "copied"
-                        );
-
-                    },
-                    1800
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    "Clipboard error:",
-                    error
-                );
-
-
-                /*
-                   Fallback for browsers/WebViews
-                   where clipboard API is unavailable.
-                */
-
-                try {
-
-                    const textarea =
-                        document.createElement(
-                            "textarea"
-                        );
-
-
-                    textarea.value =
-                        code;
-
-
-                    textarea.style.position =
-                        "fixed";
-
-
-                    textarea.style.opacity =
-                        "0";
-
-
-                    document.body.appendChild(
-                        textarea
+                const strong =
+                    document.createElement(
+                        "strong"
                     );
 
-
-                    textarea.focus();
-
-                    textarea.select();
-
-
-                    document.execCommand(
-                        "copy"
+                strong.textContent =
+                    part.slice(
+                        2,
+                        -2
                     );
 
+                fragment.appendChild(
+                    strong
+                );
 
-                    textarea.remove();
+                return;
+            }
 
+            if (
+                part.startsWith("*") &&
+                part.endsWith("*") &&
+                part.length > 2
+            ) {
+
+                const italic =
+                    document.createElement(
+                        "em"
+                    );
+
+                italic.textContent =
+                    part.slice(
+                        1,
+                        -1
+                    );
+
+                fragment.appendChild(
+                    italic
+                );
+
+                return;
+            }
+
+            fragment.appendChild(
+                document.createTextNode(
+                    part
+                )
+            );
+        });
+
+        return fragment;
+    }
+
+    function createCodeBlock(
+        codePart,
+        container
+    ) {
+
+        let code =
+            codePart
+                .replace(
+                    /^```/,
+                    ""
+                )
+                .replace(
+                    /```$/,
+                    ""
+                );
+
+        let language =
+            "Code";
+
+        const firstNewLine =
+            code.indexOf("\n");
+
+        if (
+            firstNewLine !== -1
+        ) {
+
+            const possibleLanguage =
+                code
+                    .slice(
+                        0,
+                        firstNewLine
+                    )
+                    .trim();
+
+            if (
+                /^[a-zA-Z0-9+#._-]+$/.test(
+                    possibleLanguage
+                )
+            ) {
+
+                language =
+                    possibleLanguage;
+
+                code =
+                    code.slice(
+                        firstNewLine + 1
+                    );
+            }
+        }
+
+        code =
+            code.trim();
+
+        const wrapper =
+            document.createElement(
+                "div"
+            );
+
+        wrapper.className =
+            "code-block";
+
+        const header =
+            document.createElement(
+                "div"
+            );
+
+        header.className =
+            "code-header";
+
+        const languageLabel =
+            document.createElement(
+                "span"
+            );
+
+        languageLabel.className =
+            "code-language";
+
+        languageLabel.textContent =
+            language;
+
+        const copyButton =
+            document.createElement(
+                "button"
+            );
+
+        copyButton.type =
+            "button";
+
+        copyButton.className =
+            "code-copy-button";
+
+        copyButton.textContent =
+            "Copy";
+
+        copyButton.addEventListener(
+            "click",
+            async () => {
+
+                const copied =
+                    await copyText(code);
+
+                if (copied) {
 
                     copyButton.textContent =
                         "Copied!";
 
-
                     setTimeout(
                         () => {
-
                             copyButton.textContent =
                                 "Copy";
-
                         },
                         1800
                     );
-
-                } catch (fallbackError) {
-
-                    console.error(
-                        "Copy fallback error:",
-                        fallbackError
-                    );
-
                 }
-
             }
-
-        }
-    );
-
-
-    header.appendChild(
-        languageLabel
-    );
-
-
-    header.appendChild(
-        copyButton
-    );
-
-
-    /* -----------------------------------------
-       CODE ELEMENT
-    ----------------------------------------- */
-
-    const pre =
-        document.createElement("pre");
-
-
-    pre.className =
-        "code-pre";
-
-
-    const codeElement =
-        document.createElement("code");
-
-
-    codeElement.textContent =
-        code;
-
-
-    codeElement.className =
-        `language-${language.toLowerCase()}`;
-
-
-    pre.appendChild(
-        codeElement
-    );
-
-
-    wrapper.appendChild(
-        header
-    );
-
-
-    wrapper.appendChild(
-        pre
-    );
-
-
-    container.appendChild(
-        wrapper
-    );
-
-}
-
-
-/* ============================================================
-   MESSAGE ID GENERATOR
-============================================================ */
-
-function generateMessageId() {
-
-    return (
-        "msg_" +
-        Date.now() +
-        "_" +
-        Math.random()
-            .toString(36)
-            .substring(2, 9)
-    );
-
-}
-
-
-/* ============================================================
-   ADD USER MESSAGE
-============================================================ */
-
-function addUserMessage(
-    content
-) {
-
-    if (!messagesContainer) {
-        return null;
-    }
-
-
-    const wrapper =
-        document.createElement("div");
-
-
-    wrapper.className =
-        "message-wrapper user-message-wrapper";
-
-
-    wrapper.dataset.role =
-        "user";
-
-
-    wrapper.dataset.messageId =
-        generateMessageId();
-
-
-    /* -----------------------------------------
-       Content
-    ----------------------------------------- */
-
-    const contentWrapper =
-        document.createElement("div");
-
-
-    contentWrapper.className =
-        "message-content-wrapper user-content-wrapper";
-
-
-    const bubble =
-        document.createElement("div");
-
-
-    bubble.className =
-        "message-bubble user-bubble";
-
-
-    const paragraph =
-        document.createElement("p");
-
-
-    paragraph.className =
-        "user-message-text";
-
-
-    paragraph.textContent =
-        content;
-
-
-    bubble.appendChild(
-        paragraph
-    );
-
-
-    contentWrapper.appendChild(
-        bubble
-    );
-
-
-    /* -----------------------------------------
-       Avatar
-    ----------------------------------------- */
-
-    const avatar =
-        document.createElement("div");
-
-
-    avatar.className =
-        "message-avatar user-avatar";
-
-
-    avatar.textContent =
-        "You";
-
-
-    wrapper.appendChild(
-        contentWrapper
-    );
-
-
-    wrapper.appendChild(
-        avatar
-    );
-
-
-    messagesContainer.appendChild(
-        wrapper
-    );
-
-
-    scrollToBottom();
-
-
-    return wrapper;
-
-}
-
-
-/* ============================================================
-   ADD ASSISTANT MESSAGE
-============================================================ */
-
-function addAssistantMessage(
-    content,
-    modelUsed
-) {
-
-    if (!messagesContainer) {
-        return null;
-    }
-
-
-    const wrapper =
-        document.createElement("div");
-
-
-    wrapper.className =
-        "message-wrapper assistant-message-wrapper";
-
-
-    wrapper.dataset.role =
-        "assistant";
-
-
-    wrapper.dataset.messageId =
-        generateMessageId();
-
-
-    /* -----------------------------------------
-       Avatar
-    ----------------------------------------- */
-
-    const avatar =
-        document.createElement("div");
-
-
-    avatar.className =
-        "message-avatar";
-
-
-    const logo =
-        document.createElement("img");
-
-
-    logo.src =
-        "volby-logo.png";
-
-
-    logo.alt =
-        "Volby";
-
-
-    logo.className =
-        "message-avatar-logo";
-
-
-    avatar.appendChild(
-        logo
-    );
-
-
-    /* -----------------------------------------
-       Content
-    ----------------------------------------- */
-
-    const contentWrapper =
-        document.createElement("div");
-
-
-    contentWrapper.className =
-        "message-content-wrapper";
-
-
-    /* -----------------------------------------
-       Header
-    ----------------------------------------- */
-
-    const header =
-        document.createElement("div");
-
-
-    header.className =
-        "message-header";
-
-
-    const name =
-        document.createElement("span");
-
-
-    name.className =
-        "message-name";
-
-
-    name.textContent =
-        "Volby";
-
-
-    header.appendChild(
-        name
-    );
-
-
-    if (modelUsed) {
-
-        const modelBadge =
-            document.createElement("span");
-
-
-        modelBadge.className =
-            "model-badge";
-
-
-        modelBadge.textContent =
-            modelUsed;
-
+        );
 
         header.appendChild(
-            modelBadge
+            languageLabel
         );
 
+        header.appendChild(
+            copyButton
+        );
+
+        const pre =
+            document.createElement(
+                "pre"
+            );
+
+        pre.className =
+            "code-pre";
+
+        const codeElement =
+            document.createElement(
+                "code"
+            );
+
+        codeElement.className =
+            `language-${language.toLowerCase()}`;
+
+        codeElement.textContent =
+            code;
+
+        pre.appendChild(
+            codeElement
+        );
+
+        wrapper.appendChild(
+            header
+        );
+
+        wrapper.appendChild(
+            pre
+        );
+
+        container.appendChild(
+            wrapper
+        );
     }
 
-
-    /* -----------------------------------------
-       Response bubble
-    ----------------------------------------- */
-
-    const bubble =
-        document.createElement("div");
-
-
-    bubble.className =
-        "message-bubble assistant-bubble";
-
-
-    bubble.appendChild(
-        formatAIResponse(
-            content
-        )
-    );
-
-
-    contentWrapper.appendChild(
-        header
-    );
-
-
-    contentWrapper.appendChild(
-        bubble
-    );
-
-
-    wrapper.appendChild(
-        avatar
-    );
-
-
-    wrapper.appendChild(
-        contentWrapper
-    );
-
-
-    messagesContainer.appendChild(
-        wrapper
-    );
-
-
-    scrollToBottom();
-
-
-    return wrapper;
-
-}
-/* ============================================================
-   SCRIPT.JS — CHUNK 5B/6
-   VOLBY AI — MESSAGE ACTIONS + HISTORY
-============================================================ */
-
-
-/* ============================================================
-   ADD MESSAGE ACTIONS
-============================================================ */
-
-function addMessageActions(
-    bubble,
-    content,
-    role
-) {
-
-    if (!bubble) {
-        return;
-    }
-
-
-    const actions =
-        document.createElement("div");
-
-
-    actions.className =
-        "message-actions";
-
-
-    /* -----------------------------------------
-       COPY
-    ----------------------------------------- */
-
-    const copyButton =
-        document.createElement("button");
-
-
-    copyButton.type =
-        "button";
-
-
-    copyButton.className =
-        "message-action";
-
-
-    copyButton.textContent =
-        "Copy";
-
-
-    copyButton.addEventListener(
-        "click",
-        async () => {
-
-            try {
-
-                await navigator.clipboard.writeText(
-                    String(content)
-                );
-
-
-                copyButton.textContent =
-                    "Copied!";
-
-
-                setTimeout(
-                    () => {
-
-                        copyButton.textContent =
-                            "Copy";
-
-                    },
-                    1500
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    "Message copy error:",
-                    error
-                );
-
-            }
-
-        }
-    );
-
-
-    actions.appendChild(
-        copyButton
-    );
-
-
-    /* -----------------------------------------
-       REGENERATE — ASSISTANT ONLY
-    ----------------------------------------- */
-
-    if (
-        role === "assistant"
+    function createTextContent(
+        text,
+        container
     ) {
 
-        const regenerateButton =
-            document.createElement("button");
+        if (
+            !text ||
+            !text.trim()
+        ) {
+            return;
+        }
 
+        const lines =
+            text.split("\n");
 
-        regenerateButton.type =
-            "button";
+        let currentList = null;
 
+        lines.forEach(line => {
 
-        regenerateButton.className =
-            "message-action";
+            const trimmed =
+                line.trim();
 
-
-        regenerateButton.textContent =
-            "Regenerate";
-
-
-        regenerateButton.addEventListener(
-            "click",
-            () => {
+            if (
+                trimmed.startsWith("- ") ||
+                trimmed.startsWith("* ")
+            ) {
 
                 if (
-                    typeof regenerateLastResponse ===
-                    "function"
+                    !currentList ||
+                    currentList.tagName !==
+                        "UL"
                 ) {
 
-                    regenerateLastResponse();
+                    currentList =
+                        document.createElement(
+                            "ul"
+                        );
 
+                    currentList.className =
+                        "ai-list";
+
+                    container.appendChild(
+                        currentList
+                    );
                 }
 
+                const li =
+                    document.createElement(
+                        "li"
+                    );
+
+                li.appendChild(
+                    formatInlineMarkdown(
+                        trimmed.slice(2)
+                    )
+                );
+
+                currentList.appendChild(
+                    li
+                );
+
+                return;
+            }
+
+            const numbered =
+                trimmed.match(
+                    /^\d+\.\s+(.*)/
+                );
+
+            if (numbered) {
+
+                if (
+                    !currentList ||
+                    currentList.tagName !==
+                        "OL"
+                ) {
+
+                    currentList =
+                        document.createElement(
+                            "ol"
+                        );
+
+                    currentList.className =
+                        "ai-list";
+
+                    container.appendChild(
+                        currentList
+                    );
+                }
+
+                const li =
+                    document.createElement(
+                        "li"
+                    );
+
+                li.appendChild(
+                    formatInlineMarkdown(
+                        numbered[1]
+                    )
+                );
+
+                currentList.appendChild(
+                    li
+                );
+
+                return;
+            }
+
+            currentList = null;
+
+            if (
+                trimmed.startsWith("### ")
+            ) {
+
+                const heading =
+                    document.createElement(
+                        "h4"
+                    );
+
+                heading.className =
+                    "ai-heading";
+
+                heading.appendChild(
+                    formatInlineMarkdown(
+                        trimmed.slice(4)
+                    )
+                );
+
+                container.appendChild(
+                    heading
+                );
+
+                return;
+            }
+
+            if (
+                trimmed.startsWith("## ")
+            ) {
+
+                const heading =
+                    document.createElement(
+                        "h3"
+                    );
+
+                heading.className =
+                    "ai-heading";
+
+                heading.appendChild(
+                    formatInlineMarkdown(
+                        trimmed.slice(3)
+                    )
+                );
+
+                container.appendChild(
+                    heading
+                );
+
+                return;
+            }
+
+            if (
+                trimmed.startsWith("# ")
+            ) {
+
+                const heading =
+                    document.createElement(
+                        "h2"
+                    );
+
+                heading.className =
+                    "ai-heading";
+
+                heading.appendChild(
+                    formatInlineMarkdown(
+                        trimmed.slice(2)
+                    )
+                );
+
+                container.appendChild(
+                    heading
+                );
+
+                return;
+            }
+
+            if (!trimmed) {
+
+                const spacer =
+                    document.createElement(
+                        "div"
+                    );
+
+                spacer.className =
+                    "text-spacer";
+
+                container.appendChild(
+                    spacer
+                );
+
+                return;
+            }
+
+            const paragraph =
+                document.createElement(
+                    "p"
+                );
+
+            paragraph.className =
+                "ai-paragraph";
+
+            paragraph.appendChild(
+                formatInlineMarkdown(
+                    line
+                )
+            );
+
+            container.appendChild(
+                paragraph
+            );
+        });
+    }
+
+    function formatAIResponse(content) {
+
+        const fragment =
+            document.createDocumentFragment();
+
+        const parts =
+            String(content)
+                .split(
+                    /(```[\s\S]*?```)/g
+                );
+
+        parts.forEach(part => {
+
+            if (
+                part.startsWith("```") &&
+                part.endsWith("```")
+            ) {
+
+                createCodeBlock(
+                    part,
+                    fragment
+                );
+
+            } else {
+
+                createTextContent(
+                    part,
+                    fragment
+                );
+            }
+        });
+
+        return fragment;
+    }
+
+    /* ========================================================
+       CLIPBOARD
+    ======================================================== */
+
+    async function copyText(text) {
+
+        try {
+
+            if (
+                navigator.clipboard &&
+                navigator.clipboard.writeText
+            ) {
+
+                await navigator.clipboard.writeText(
+                    String(text)
+                );
+
+                return true;
+            }
+
+        } catch (error) {
+            console.warn(
+                "Clipboard API failed:",
+                error
+            );
+        }
+
+        try {
+
+            const textarea =
+                document.createElement(
+                    "textarea"
+                );
+
+            textarea.value =
+                String(text);
+
+            textarea.style.position =
+                "fixed";
+
+            textarea.style.opacity =
+                "0";
+
+            document.body.appendChild(
+                textarea
+            );
+
+            textarea.focus();
+            textarea.select();
+
+            const success =
+                document.execCommand(
+                    "copy"
+                );
+
+            textarea.remove();
+
+            return success;
+
+        } catch (error) {
+
+            console.error(
+                "Clipboard fallback failed:",
+                error
+            );
+
+            return false;
+        }
+    }
+
+    /* ========================================================
+       MESSAGES
+    ======================================================== */
+
+    function generateMessageId() {
+        return generateId("msg");
+    }
+
+    function addConversationMessage(
+        role,
+        content
+    ) {
+
+        messages.push({
+            id:
+                generateMessageId(),
+            role:
+                role,
+            content:
+                safeText(content)
+        });
+    }
+
+    function addUserMessage(
+        content
+    ) {
+
+        if (!messagesContainer) {
+            return null;
+        }
+
+        const wrapper =
+            document.createElement(
+                "div"
+            );
+
+        wrapper.className =
+            "message-wrapper user-message-wrapper";
+
+        wrapper.dataset.role =
+            "user";
+
+        wrapper.dataset.messageId =
+            generateMessageId();
+
+        const contentWrapper =
+            document.createElement(
+                "div"
+            );
+
+        contentWrapper.className =
+            "message-content-wrapper user-content-wrapper";
+
+        const bubble =
+            document.createElement(
+                "div"
+            );
+
+        bubble.className =
+            "message-bubble user-bubble";
+
+        const paragraph =
+            document.createElement(
+                "p"
+            );
+
+        paragraph.className =
+            "user-message-text";
+
+        paragraph.textContent =
+            safeText(content);
+
+        bubble.appendChild(
+            paragraph
+        );
+
+        contentWrapper.appendChild(
+            bubble
+        );
+
+        const avatar =
+            document.createElement(
+                "div"
+            );
+
+        avatar.className =
+            "message-avatar user-avatar";
+
+        avatar.textContent =
+            "You";
+
+        wrapper.appendChild(
+            contentWrapper
+        );
+
+        wrapper.appendChild(
+            avatar
+        );
+
+        messagesContainer.appendChild(
+            wrapper
+        );
+
+        return wrapper;
+    }
+
+    function addAssistantMessage(
+        content,
+        modelUsed
+    ) {
+
+        if (!messagesContainer) {
+            return null;
+        }
+
+        const wrapper =
+            document.createElement(
+                "div"
+            );
+
+        wrapper.className =
+            "message-wrapper assistant-message-wrapper";
+
+        wrapper.dataset.role =
+            "assistant";
+
+        wrapper.dataset.messageId =
+            generateMessageId();
+
+        const avatar =
+            document.createElement(
+                "div"
+            );
+
+        avatar.className =
+            "message-avatar";
+
+        const logo =
+            document.createElement(
+                "img"
+            );
+
+        logo.src =
+            "volby-logo.png";
+
+        logo.alt =
+            "Volby";
+
+        logo.className =
+            "message-avatar-logo";
+
+        avatar.appendChild(
+            logo
+        );
+
+        const contentWrapper =
+            document.createElement(
+                "div"
+            );
+
+        contentWrapper.className =
+            "message-content-wrapper";
+
+        const header =
+            document.createElement(
+                "div"
+            );
+
+        header.className =
+            "message-header";
+
+        const name =
+            document.createElement(
+                "span"
+            );
+
+        name.className =
+            "message-name";
+
+        name.textContent =
+            "Volby";
+
+        header.appendChild(
+            name
+        );
+
+        if (modelUsed) {
+
+            const badge =
+                document.createElement(
+                    "span"
+                );
+
+            badge.className =
+                "model-badge";
+
+            badge.textContent =
+                modelUsed;
+
+            header.appendChild(
+                badge
+            );
+        }
+
+        const bubble =
+            document.createElement(
+                "div"
+            );
+
+        bubble.className =
+            "message-bubble assistant-bubble";
+
+        bubble.appendChild(
+            formatAIResponse(
+                content
+            )
+        );
+
+        contentWrapper.appendChild(
+            header
+        );
+
+        contentWrapper.appendChild(
+            bubble
+        );
+
+        wrapper.appendChild(
+            avatar
+        );
+
+        wrapper.appendChild(
+            contentWrapper
+        );
+
+        messagesContainer.appendChild(
+            wrapper
+        );
+
+        return wrapper;
+    }
+
+    function addLoadingMessage() {
+
+        if (!messagesContainer) {
+            return null;
+        }
+
+        const wrapper =
+            document.createElement(
+                "div"
+            );
+
+        wrapper.className =
+            "message-wrapper loading-wrapper";
+
+        wrapper.dataset.role =
+            "assistant";
+
+        const avatar =
+            document.createElement(
+                "div"
+            );
+
+        avatar.className =
+            "message-avatar";
+
+        const logo =
+            document.createElement(
+                "img"
+            );
+
+        logo.src =
+            "volby-logo.png";
+
+        logo.alt =
+            "Volby";
+
+        logo.className =
+            "message-avatar-logo";
+
+        avatar.appendChild(
+            logo
+        );
+
+        const contentWrapper =
+            document.createElement(
+                "div"
+            );
+
+        contentWrapper.className =
+            "message-content-wrapper";
+
+        const header =
+            document.createElement(
+                "div"
+            );
+
+        header.className =
+            "message-header";
+
+        const name =
+            document.createElement(
+                "span"
+            );
+
+        name.className =
+            "message-name";
+
+        name.textContent =
+            "Volby";
+
+        header.appendChild(
+            name
+        );
+
+        const bubble =
+            document.createElement(
+                "div"
+            );
+
+        bubble.className =
+            "message-bubble thinking-bubble";
+
+        const text =
+            document.createElement(
+                "span"
+            );
+
+        text.className =
+            "thinking-text";
+
+        text.textContent =
+            "Thinking";
+
+        const dots =
+            document.createElement(
+                "span"
+            );
+
+        dots.className =
+            "thinking-dots";
+
+        dots.innerHTML =
+            "<i></i><i></i><i></i>";
+
+        bubble.appendChild(
+            text
+        );
+
+        bubble.appendChild(
+            dots
+        );
+
+        contentWrapper.appendChild(
+            header
+        );
+
+        contentWrapper.appendChild(
+            bubble
+        );
+
+        wrapper.appendChild(
+            avatar
+        );
+
+        wrapper.appendChild(
+            contentWrapper
+        );
+
+        messagesContainer.appendChild(
+            wrapper
+        );
+
+        scrollToBottom();
+
+        return wrapper;
+    }
+
+    function addMessageActions(
+        bubble,
+        content,
+        role
+    ) {
+
+        if (!bubble) {
+            return;
+        }
+
+        const actions =
+            document.createElement(
+                "div"
+            );
+
+        actions.className =
+            "message-actions";
+
+        const copyButton =
+            document.createElement(
+                "button"
+            );
+
+        copyButton.type =
+            "button";
+
+        copyButton.className =
+            "message-action";
+
+        copyButton.textContent =
+            "Copy";
+
+        copyButton.addEventListener(
+            "click",
+            async () => {
+
+                if (
+                    await copyText(
+                        content
+                    )
+                ) {
+
+                    copyButton.textContent =
+                        "Copied!";
+
+                    setTimeout(
+                        () => {
+                            copyButton.textContent =
+                                "Copy";
+                        },
+                        1500
+                    );
+                }
             }
         );
 
-
         actions.appendChild(
-            regenerateButton
+            copyButton
         );
 
+        if (
+            role === "assistant"
+        ) {
+
+            const regenerateButton =
+                document.createElement(
+                    "button"
+                );
+
+            regenerateButton.type =
+                "button";
+
+            regenerateButton.className =
+                "message-action";
+
+            regenerateButton.textContent =
+                "Regenerate";
+
+            regenerateButton.addEventListener(
+                "click",
+                () => {
+                    regenerateLastResponse();
+                }
+            );
+
+            actions.appendChild(
+                regenerateButton
+            );
+        }
+
+        bubble.appendChild(
+            actions
+        );
     }
 
+    function addUserMessageWithActions(
+        content
+    ) {
 
-    bubble.appendChild(
-        actions
-    );
+        const wrapper =
+            addUserMessage(
+                content
+            );
 
-}
-
-
-/* ============================================================
-   ADD ACTIONS TO ASSISTANT MESSAGE
-============================================================ */
-
-function addAssistantMessageWithActions(
-    content,
-    modelUsed
-) {
-
-    const wrapper =
-        addAssistantMessage(
-            content,
-            modelUsed
-        );
-
-
-    if (!wrapper) {
-        return null;
-    }
-
-
-    const bubble =
-        wrapper.querySelector(
-            ".assistant-bubble"
-        );
-
-
-    if (bubble) {
+        if (!wrapper) {
+            return null;
+        }
 
         addMessageActions(
-            bubble,
+            wrapper.querySelector(
+                ".user-bubble"
+            ),
+            content,
+            "user"
+        );
+
+        scrollToBottom();
+
+        return wrapper;
+    }
+
+    function addAssistantMessageWithActions(
+        content,
+        modelUsed
+    ) {
+
+        const wrapper =
+            addAssistantMessage(
+                content,
+                modelUsed
+            );
+
+        if (!wrapper) {
+            return null;
+        }
+
+        addMessageActions(
+            wrapper.querySelector(
+                ".assistant-bubble"
+            ),
             content,
             "assistant"
         );
 
+        scrollToBottom();
+
+        return wrapper;
     }
 
+    function addMessageToUI(
+        role,
+        content
+    ) {
 
-    return wrapper;
+        if (
+            role === "user"
+        ) {
 
-}
+            return addUserMessage(
+                content
+            );
 
+        }
 
-/* ============================================================
-   ADD ACTIONS TO USER MESSAGE
-============================================================ */
+        if (
+            role === "assistant"
+        ) {
 
-function addUserMessageWithActions(
-    content
-) {
+            return addAssistantMessage(
+                content,
+                selectedModel ===
+                    "openrouter"
+                    ? "Volby Pro"
+                    : "Volby"
+            );
+        }
 
-    const wrapper =
-        addUserMessage(
-            content
-        );
-
-
-    if (!wrapper) {
         return null;
     }
 
+    /* ========================================================
+       CHAT HISTORY
+    ======================================================== */
 
-    const bubble =
-        wrapper.querySelector(
-            ".user-bubble"
+    function generateChatTitle(
+        text
+    ) {
+
+        const clean =
+            safeText(text)
+                .replace(
+                    /\s+/g,
+                    " "
+                )
+                .trim();
+
+        if (!clean) {
+            return "New Chat";
+        }
+
+        if (
+            clean.length <= 42
+        ) {
+            return clean;
+        }
+
+        return (
+            clean
+                .slice(0, 42)
+                .trim() +
+            "…"
+        );
+    }
+
+    function createHistoryEntry(
+        firstMessage
+    ) {
+
+        const entry = {
+            id:
+                generateId("chat"),
+            title:
+                generateChatTitle(
+                    firstMessage
+                ),
+            messages:
+                messages.map(
+                    message => ({
+                        role:
+                            message.role,
+                        content:
+                            message.content
+                    })
+                ),
+            model:
+                selectedModel,
+            createdAt:
+                Date.now(),
+            updatedAt:
+                Date.now(),
+            _active:
+                true
+        };
+
+        chatHistory.forEach(
+            chat => {
+                chat._active =
+                    false;
+            }
         );
 
-
-    if (bubble) {
-
-        addMessageActions(
-            bubble,
-            content,
-            "user"
+        chatHistory.unshift(
+            entry
         );
 
-    }
+        currentChatId =
+            entry.id;
 
-
-    return wrapper;
-
-}
-
-
-/* ============================================================
-   CHAT TITLE GENERATOR
-============================================================ */
-
-function generateChatTitle(
-    text
-) {
-
-    const clean =
-        String(text || "")
-            .replace(/\s+/g, " ")
-            .trim();
-
-
-    if (!clean) {
-        return "New Chat";
-    }
-
-
-    if (clean.length <= 42) {
-        return clean;
-    }
-
-
-    return (
-        clean.substring(0, 42)
-        .trim() +
-        "…"
-    );
-
-}
-
-
-/* ============================================================
-   SAVE CHAT HISTORY
-============================================================ */
-
-function saveChatHistory() {
-
-    try {
+        trimHistory();
 
         setStorage(
-            "volby_chat_history",
+            HISTORY_STORAGE_KEY,
             chatHistory
         );
 
-
         renderChatHistory();
 
-    } catch (error) {
-
-        console.error(
-            "Chat history save error:",
-            error
-        );
-
+        return entry;
     }
 
-}
+    function updateCurrentChatHistory() {
 
+        if (!messages.length) {
+            return;
+        }
 
-/* ============================================================
-   CREATE HISTORY ENTRY
-============================================================ */
+        const firstUserMessage =
+            messages.find(
+                message =>
+                    message.role ===
+                    "user"
+            );
 
-function createHistoryEntry(
-    userMessage
-) {
+        if (!firstUserMessage) {
+            return;
+        }
 
-    const entry = {
+        let entry =
+            chatHistory.find(
+                chat =>
+                    chat.id ===
+                    currentChatId
+            );
 
-        id:
-            "chat_" +
-            Date.now() +
-            "_" +
-            Math.random()
-                .toString(36)
-                .substring(2, 8),
+        if (!entry) {
 
-        title:
-            generateChatTitle(
-                userMessage
-            ),
+            entry =
+                createHistoryEntry(
+                    firstUserMessage.content
+                );
+        }
 
-        messages:
+        entry.messages =
             messages.map(
                 message => ({
                     role:
                         message.role,
-
                     content:
                         message.content
                 })
-            ),
-
-        createdAt:
-            Date.now(),
-
-        updatedAt:
-            Date.now()
-
-    };
-
-
-    chatHistory.unshift(
-        entry
-    );
-
-
-    /*
-       Keep local history manageable.
-       This prevents localStorage from becoming
-       unnecessarily large.
-    */
-
-    if (
-        chatHistory.length > 50
-    ) {
-
-        chatHistory =
-            chatHistory.slice(
-                0,
-                50
             );
 
-    }
+        entry.model =
+            selectedModel;
 
+        entry.updatedAt =
+            Date.now();
 
-    saveChatHistory();
+        entry._active =
+            true;
 
-
-    return entry;
-
-}
-
-
-/* ============================================================
-   UPDATE CURRENT CHAT HISTORY
-============================================================ */
-
-function updateCurrentChatHistory() {
-
-    if (
-        !messages.length
-    ) {
-
-        return;
-
-    }
-
-
-    const firstUserMessage =
-        messages.find(
-            message =>
-                message.role ===
-                "user"
-        );
-
-
-    if (!firstUserMessage) {
-        return;
-    }
-
-
-    let currentEntry =
-        chatHistory[0];
-
-
-    /*
-       If there is no current history item,
-       create one.
-    */
-
-    if (
-        !currentEntry ||
-        currentEntry._active !== true
-    ) {
-
-        currentEntry =
-            createHistoryEntry(
-                firstUserMessage.content
-            );
-
-    }
-
-
-    currentEntry.messages =
-        messages.map(
-            message => ({
-                role:
-                    message.role,
-
-                content:
-                    message.content
-            })
-        );
-
-
-    currentEntry.updatedAt =
-        Date.now();
-
-
-    currentEntry._active =
-        true;
-
-
-    setStorage(
-        "volby_chat_history",
-        chatHistory
-    );
-
-
-    renderChatHistory();
-
-}
-
-
-/* ============================================================
-   HISTORY LIST
-============================================================ */
-
-function renderChatHistory() {
-
-    if (!historyList) {
-        return;
-    }
-
-
-    historyList.innerHTML =
-        "";
-
-
-    if (
-        !Array.isArray(chatHistory) ||
-        chatHistory.length === 0
-    ) {
-
-        if (emptyHistory) {
-
-            emptyHistory.style.display =
-                "";
-
-        }
-
-        return;
-
-    }
-
-
-    if (emptyHistory) {
-
-        emptyHistory.style.display =
-            "none";
-
-    }
-
-
-    chatHistory.forEach(
-        (chat, index) => {
-
-            const item =
-                document.createElement("button");
-
-
-            item.type =
-                "button";
-
-
-            item.className =
-                "history-item";
-
-
-            item.dataset.index =
-                String(index);
-
-
-            const icon =
-                document.createElement("span");
-
-
-            icon.className =
-                "history-item-icon";
-
-
-            icon.textContent =
-                "◌";
-
-
-            const title =
-                document.createElement("span");
-
-
-            title.className =
-                "history-item-title";
-
-
-            title.textContent =
-                chat.title ||
-                "New Chat";
-
-
-            item.appendChild(
-                icon
-            );
-
-
-            item.appendChild(
-                title
-            );
-
-
-            item.addEventListener(
-                "click",
-                () => {
-
-                    loadChatFromHistory(
-                        index
-                    );
-
-                }
-            );
-
-
-            historyList.appendChild(
-                item
-            );
-
-        }
-    );
-
-}
-
-
-/* ============================================================
-   LOAD CHAT FROM HISTORY
-============================================================ */
-
-function loadChatFromHistory(
-    index
-) {
-
-    const chat =
-        chatHistory[index];
-
-
-    if (!chat) {
-        return;
-    }
-
-
-    messages =
-        Array.isArray(
-            chat.messages
-        )
-            ? chat.messages.map(
-                message => ({
-                    role:
-                        message.role,
-
-                    content:
-                        message.content
-                })
-            )
-            : [];
-
-
-    if (!messagesContainer) {
-        return;
-    }
-
-
-    messagesContainer.innerHTML =
-        "";
-
-
-    if (
-        messages.length === 0
-    ) {
-
-        if (welcomeScreen) {
-
-            messagesContainer.appendChild(
-                welcomeScreen
-            );
-
-            welcomeScreen.style.display =
-                "";
-
-        }
-
-    } else {
-
-        if (welcomeScreen) {
-
-            welcomeScreen.style.display =
-                "none";
-
-        }
-
-
-        messages.forEach(
-            message => {
+        chatHistory.forEach(
+            chat => {
 
                 if (
-                    message.role ===
-                    "user"
+                    chat.id !==
+                    entry.id
                 ) {
-
-                    addUserMessage(
-                        message.content
-                    );
-
-                } else if (
-                    message.role ===
-                    "assistant"
-                ) {
-
-                    addAssistantMessage(
-                        message.content,
-                        selectedModel ===
-                            "openrouter"
-                            ? "Volby Pro"
-                            : "Volby"
-                    );
-
+                    chat._active =
+                        false;
                 }
-
             }
         );
 
+        chatHistory.sort(
+            (a, b) =>
+                (b.updatedAt || 0) -
+                (a.updatedAt || 0)
+        );
+
+        trimHistory();
+
+        setStorage(
+            HISTORY_STORAGE_KEY,
+            chatHistory
+        );
+
+        renderChatHistory();
     }
 
+    function trimHistory() {
 
-    chat._active =
-        true;
+        if (
+            chatHistory.length >
+            MAX_HISTORY
+        ) {
 
-
-    chatHistory.forEach(
-        (item, itemIndex) => {
-
-            item._active =
-                itemIndex === index;
-
+            chatHistory =
+                chatHistory.slice(
+                    0,
+                    MAX_HISTORY
+                );
         }
-    );
+    }
 
+    function renderChatHistory() {
 
-    setStorage(
-        "volby_chat_history",
-        chatHistory
-    );
+        if (!historyList) {
+            return;
+        }
 
+        historyList.innerHTML =
+            "";
 
-    closeSidebarMenu();
+        if (
+            !chatHistory.length
+        ) {
 
-    scrollToBottom();
+            if (emptyHistory) {
+                emptyHistory.style.display =
+                    "";
+            }
 
-}
+            return;
+        }
 
+        if (emptyHistory) {
+            emptyHistory.style.display =
+                "none";
+        }
 
-/* ============================================================
-   CLEAR CURRENT CHAT
-============================================================ */
+        chatHistory.forEach(
+            chat => {
 
-function clearCurrentChat() {
+                const item =
+                    document.createElement(
+                        "button"
+                    );
 
-    messages = [];
+                item.type =
+                    "button";
 
+                item.className =
+                    "history-item";
 
-    if (messagesContainer) {
+                item.classList.toggle(
+                    "active",
+                    chat.id ===
+                        currentChatId
+                );
+
+                const icon =
+                    document.createElement(
+                        "span"
+                    );
+
+                icon.className =
+                    "history-item-icon";
+
+                icon.textContent =
+                    "◌";
+
+                const title =
+                    document.createElement(
+                        "span"
+                    );
+
+                title.className =
+                    "history-item-title";
+
+                title.textContent =
+                    chat.title ||
+                    "New Chat";
+
+                item.appendChild(
+                    icon
+                );
+
+                item.appendChild(
+                    title
+                );
+
+                item.addEventListener(
+                    "click",
+                    () => {
+                        loadChat(
+                            chat.id
+                        );
+                    }
+                );
+
+                item.addEventListener(
+                    "contextmenu",
+                    event => {
+
+                        event.preventDefault();
+
+                        if (
+                            confirm(
+                                "Delete this conversation?"
+                            )
+                        ) {
+                            deleteChat(
+                                chat.id
+                            );
+                        }
+                    }
+                );
+
+                historyList.appendChild(
+                    item
+                );
+            }
+        );
+    }
+
+    function loadChat(
+        chatId
+    ) {
+
+        const chat =
+            chatHistory.find(
+                item =>
+                    item.id ===
+                    chatId
+            );
+
+        if (!chat) {
+            return;
+        }
+
+        currentChatId =
+            chat.id;
+
+        messages =
+            Array.isArray(
+                chat.messages
+            )
+                ? chat.messages.map(
+                    message => ({
+                        role:
+                            message.role,
+                        content:
+                            message.content
+                    })
+                )
+                : [];
+
+        if (
+            chat.model === "groq" ||
+            chat.model === "openrouter"
+        ) {
+
+            selectedModel =
+                chat.model;
+
+            try {
+                localStorage.setItem(
+                    MODEL_STORAGE_KEY,
+                    selectedModel
+                );
+            } catch (error) {
+                console.error(
+                    "Model restore error:",
+                    error
+                );
+            }
+        }
+
+        updateModelSelectorUI();
+        updateInputPlaceholder();
+
+        if (messagesContainer) {
+
+            messagesContainer.innerHTML =
+                "";
+
+            if (!messages.length) {
+
+                if (welcomeScreen) {
+
+                    messagesContainer.appendChild(
+                        welcomeScreen
+                    );
+
+                    welcomeScreen.style.display =
+                        "";
+                }
+
+            } else {
+
+                if (welcomeScreen) {
+                    welcomeScreen.style.display =
+                        "none";
+                }
+
+                messages.forEach(
+                    message => {
+                        addMessageToUI(
+                            message.role,
+                            message.content
+                        );
+                    }
+                );
+            }
+        }
+
+        chatHistory.forEach(
+            item => {
+                item._active =
+                    item.id ===
+                    currentChatId;
+            }
+        );
+
+        setStorage(
+            HISTORY_STORAGE_KEY,
+            chatHistory
+        );
+
+        renderChatHistory();
+        closeSidebarMenu();
+        scrollToBottom(false);
+    }
+
+    function deleteChat(
+        chatId
+    ) {
+
+        chatHistory =
+            chatHistory.filter(
+                chat =>
+                    chat.id !==
+                    chatId
+            );
+
+        if (
+            currentChatId ===
+            chatId
+        ) {
+
+            currentChatId =
+                null;
+
+            messages =
+                [];
+
+            showWelcomeScreen();
+        }
+
+        setStorage(
+            HISTORY_STORAGE_KEY,
+            chatHistory
+        );
+
+        renderChatHistory();
+    }
+
+    function clearChatHistory() {
+
+        if (
+            !confirm(
+                "Clear all Volby chat history?"
+            )
+        ) {
+            return;
+        }
+
+        chatHistory =
+            [];
+
+        setStorage(
+            HISTORY_STORAGE_KEY,
+            []
+        );
+
+        startNewChat();
+    }
+
+    function showWelcomeScreen() {
+
+        if (!messagesContainer) {
+            return;
+        }
 
         messagesContainer.innerHTML =
             "";
 
-
         if (welcomeScreen) {
 
             messagesContainer.appendChild(
                 welcomeScreen
             );
 
-
             welcomeScreen.style.display =
                 "";
-
         }
-
     }
 
+    function startNewChat() {
 
-    if (input) {
+        currentChatId =
+            null;
 
-        input.value =
-            "";
+        messages =
+            [];
 
-        updateCharacterCount();
-
-        autoResize();
-
-    }
-
-
-    /*
-       Mark previous history entries inactive.
-    */
-
-    chatHistory.forEach(
-        chat => {
-
-            chat._active =
-                false;
-
-        }
-    );
-
-
-    setStorage(
-        "volby_chat_history",
-        chatHistory
-    );
-
-
-    renderChatHistory();
-
-}
-
-
-/* ============================================================
-   DELETE HISTORY ITEM
-============================================================ */
-
-function deleteHistoryItem(
-    index
-) {
-
-    if (
-        index < 0 ||
-        index >= chatHistory.length
-    ) {
-
-        return;
-
-    }
-
-
-    chatHistory.splice(
-        index,
-        1
-    );
-
-
-    setStorage(
-        "volby_chat_history",
-        chatHistory
-    );
-
-
-    renderChatHistory();
-
-}
-
-
-/* ============================================================
-   NEW CHAT BUTTON
-============================================================ */
-
-if (newChatButton) {
-
-    newChatButton.addEventListener(
-        "click",
-        () => {
-
-            clearCurrentChat();
-
-            closeSidebarMenu();
-
-            if (input) {
-                input.focus();
-            }
-
-        }
-    );
-
-}
-
-
-/* ============================================================
-   PREPARE MESSAGE ARRAY
-============================================================ */
-
-function addConversationMessage(
-    role,
-    content
-) {
-
-    messages.push({
-
-        role:
-            role,
-
-        content:
-            String(content)
-
-    });
-
-}
-
-
-/* ============================================================
-   GET CURRENT CONVERSATION
-============================================================ */
-
-function getConversationMessages() {
-
-    return messages.map(
-        message => ({
-
-            role:
-                message.role,
-
-            content:
-                message.content
-
-        })
-    );
-
-}
-
-
-/* ============================================================
-   GET LAST USER MESSAGE
-============================================================ */
-
-function getLastUserMessage() {
-
-    for (
-        let i = messages.length - 1;
-        i >= 0;
-        i--
-    ) {
-
-        if (
-            messages[i].role ===
-            "user"
-        ) {
-
-            return messages[i];
-
-        }
-
-    }
-
-
-    return null;
-
-}
-
-
-/* ============================================================
-   REGENERATE PLACEHOLDER
-============================================================ */
-
-async function regenerateLastResponse() {
-
-    const lastUser =
-        getLastUserMessage();
-
-
-    if (!lastUser) {
-
-        return;
-
-    }
-
-
-    /*
-       Remove the most recent assistant response
-       from the local conversation.
-    */
-
-    while (
-        messages.length > 0 &&
-        messages[messages.length - 1]
-            .role === "assistant"
-    ) {
-
-        messages.pop();
-
-    }
-
-
-    /*
-       Re-use the main send function if available.
-    */
-
-    if (
-        typeof requestAIResponse ===
-        "function"
-    ) {
-
-        await requestAIResponse(
-            true
-        );
-
-    }
-
-}
-/* ============================================================
-   SCRIPT.JS — CHUNK 6/6
-   VOLBY AI — API + SEND FLOW + INITIALIZATION
-============================================================ */
-
-
-/* ============================================================
-   API REQUEST
-============================================================ */
-
-async function requestAIResponse(
-    isRegeneration = false
-) {
-
-    if (!messages.length) {
-        return;
-    }
-
-
-    const thinkingMessage =
-        addLoadingMessage();
-
-
-    setSendingState(true);
-
-
-    try {
-
-        const response =
-            await fetch(
-                BACKEND_URL,
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body: JSON.stringify({
-
-                        messages:
-                            getConversationMessages(),
-
-                        model:
-                            selectedModel
-
-                    })
-
-                }
-            );
-
-
-        let data = null;
-
-
-        try {
-
-            data =
-                await response.json();
-
-        } catch (jsonError) {
-
-            console.error(
-                "Invalid JSON response:",
-                jsonError
-            );
-
-        }
-
-
-        if (!response.ok) {
-
-            const serverError =
-                data?.detail ||
-                data?.error ||
-                `Server returned ${response.status}`;
-
-            throw new Error(
-                String(serverError)
-            );
-
-        }
-
-
-        const answer =
-            data?.response ||
-            data?.message ||
-            data?.answer;
-
-
-        if (
-            typeof answer !== "string" ||
-            !answer.trim()
-        ) {
-
-            throw new Error(
-                "Volby returned an empty response."
-            );
-
-        }
-
-
-        /* -----------------------------------------
-           Remove thinking indicator
-        ----------------------------------------- */
-
-        if (thinkingMessage) {
-
-            thinkingMessage.remove();
-
-        }
-
-
-        /* -----------------------------------------
-           Add assistant response
-        ----------------------------------------- */
-
-        addConversationMessage(
-            "assistant",
-            answer
-        );
-
-
-        addAssistantMessageWithActions(
-            answer,
-            data?.model_used ||
-                (
-                    selectedModel ===
-                    "openrouter"
-                        ? "Volby Pro"
-                        : "Volby"
-                )
-        );
-
-
-        /* -----------------------------------------
-           Save conversation
-        ----------------------------------------- */
-
-        updateCurrentChatHistory();
-
-
-        scrollToBottom();
-
-
-    } catch (error) {
-
-        console.error(
-            "Volby API error:",
-            error
-        );
-
-
-        if (thinkingMessage) {
-
-            thinkingMessage.remove();
-
-        }
-
-
-        const errorMessage =
-            getFriendlyErrorMessage(
-                error
-            );
-
-
-        addAssistantMessageWithActions(
-            errorMessage,
-            "Volby"
-        );
-
-
-    } finally {
-
-        setSendingState(false);
-
+        showWelcomeScreen();
 
         if (input) {
+            input.value =
+                "";
+        }
 
+        updateCharacterCount();
+        autoResize();
+        updateSendButtonState();
+        renderChatHistory();
+        closeSidebarMenu();
+
+        if (input) {
             input.focus();
-
         }
-
     }
 
-}
-
-
-/* ============================================================
-   SEND MESSAGE
-============================================================ */
-
-async function sendMessage() {
-
-    if (!input) {
-        return;
-    }
-
-
-    if (
-        sendButton &&
-        sendButton.disabled
-    ) {
-
-        return;
-
-    }
-
-
-    const text =
-        input.value.trim();
-
-
-    if (!text) {
-
-        input.focus();
-
-        return;
-
-    }
-
-
-    /*
-       Protect the frontend from accidentally
-       sending extremely large requests.
-    */
-
-    if (
-        text.length > 10000
-    ) {
-
-        alert(
-            "Your message is too long. Please keep it under 10,000 characters."
+    if (newChatButton) {
+        newChatButton.addEventListener(
+            "click",
+            startNewChat
         );
-
-        return;
-
     }
 
-
-    /* -----------------------------------------
-       Hide welcome screen
-    ----------------------------------------- */
-
-    if (welcomeScreen) {
-
-        welcomeScreen.style.display =
-            "none";
-
-    }
-
-
-    /* -----------------------------------------
-       Add user message to state
-    ----------------------------------------- */
-
-    addConversationMessage(
-        "user",
-        text
-    );
-
-
-    /* -----------------------------------------
-       Render user message
-    ----------------------------------------- */
-
-    addUserMessageWithActions(
-        text
-    );
-
-
-    /* -----------------------------------------
-       Clear input
-    ----------------------------------------- */
-
-    input.value =
-        "";
-
-    updateCharacterCount();
-
-    autoResize();
-
-
-    /* -----------------------------------------
-       Create history entry
-       before requesting AI
-    ----------------------------------------- */
-
-    if (
-        messages.length === 1
-    ) {
-
-        createHistoryEntry(
-            text
-        );
-
-    }
-
-
-    scrollToBottom();
-
-
-    /* -----------------------------------------
-       Request AI
-    ----------------------------------------- */
-
-    await requestAIResponse();
-
-}
-
-
-/* ============================================================
-   SEND BUTTON
-============================================================ */
-
-if (sendButton) {
-
-    sendButton.addEventListener(
-        "click",
-        () => {
-
-            sendMessage();
-
-        }
-    );
-
-}
-
-
-/* ============================================================
-   SUGGESTION PROMPTS
-============================================================ */
-
-if (suggestions) {
+    /* ========================================================
+       SUGGESTIONS
+    ======================================================== */
 
     suggestions.forEach(
         suggestion => {
@@ -6418,6 +2579,10 @@ if (suggestions) {
                 "click",
                 () => {
 
+                    if (!input) {
+                        return;
+                    }
+
                     const prompt =
                         suggestion.dataset.prompt ||
                         suggestion.getAttribute(
@@ -6425,401 +2590,1154 @@ if (suggestions) {
                         ) ||
                         suggestion.textContent.trim();
 
-
-                    if (!prompt || !input) {
+                    if (!prompt) {
                         return;
                     }
-
 
                     input.value =
                         prompt;
 
-
                     updateCharacterCount();
-
                     autoResize();
-
+                    updateSendButtonState();
                     input.focus();
-
                 }
             );
-
         }
     );
 
-}
-
-
-/* ============================================================
-   SIDEBAR EVENTS
-============================================================ */
-
-if (menuButton) {
-
-    menuButton.addEventListener(
-        "click",
-        openSidebar
-    );
-
-}
-
-
-if (closeSidebar) {
-
-    closeSidebar.addEventListener(
-        "click",
-        closeSidebarMenu
-    );
-
-}
-
-
-if (sidebarOverlay) {
-
-    sidebarOverlay.addEventListener(
-        "click",
-        closeSidebarMenu
-    );
-
-}
-
-
-/* ============================================================
-   NEW CHAT
-============================================================ */
-
-if (newChatButton) {
-
-    newChatButton.addEventListener(
-        "click",
-        () => {
-
-            clearCurrentChat();
-
-            closeSidebarMenu();
-
-            if (input) {
-
-                input.focus();
-
-            }
-
-        }
-    );
-
-}
-
-
-/* ============================================================
-   MOBILE SIDEBAR — CLOSE AFTER HISTORY CLICK
-============================================================ */
-
-if (historyList) {
-
-    historyList.addEventListener(
-        "click",
-        event => {
-
-            const item =
-                event.target.closest(
-                    ".history-item"
-                );
-
-
-            if (!item) {
-                return;
-            }
-
-
-            closeSidebarMenu();
-
-        }
-    );
-
-}
-
-
-/* ============================================================
-   MODEL CHANGE VISUAL FEEDBACK
-============================================================ */
-
-function showModelChangedFeedback(
-    model
-) {
-
-    const selectedOption =
-        MODEL_OPTIONS.find(
-            option =>
-                option.value === model
-        );
-
-
-    if (!selectedOption) {
-        return;
-    }
-
-
-    /*
-       Small temporary toast.
-    */
-
-    const oldToast =
-        document.getElementById(
-            "volby-model-toast"
-        );
-
-
-    if (oldToast) {
-        oldToast.remove();
-    }
-
-
-    const toast =
-        document.createElement("div");
-
-
-    toast.id =
-        "volby-model-toast";
-
-
-    toast.className =
-        "volby-toast";
-
-
-    toast.textContent =
-        `${selectedOption.label} selected`;
-
-
-    document.body.appendChild(
-        toast
-    );
-
-
-    requestAnimationFrame(
-        () => {
-
-            toast.classList.add(
-                "show"
-            );
-
-        }
-    );
-
-
-    setTimeout(
-        () => {
-
-            toast.classList.remove(
-                "show"
-            );
-
-
-            setTimeout(
-                () => {
-
-                    toast.remove();
-
-                },
-                250
-            );
-
-        },
-        1600
-    );
-
-}
-
-
-/* ============================================================
-   PATCH MODEL SELECTOR FEEDBACK
-============================================================ */
-
-const originalSetSelectedModel =
-    setSelectedModel;
-
-
-setSelectedModel =
-    function(model) {
-
-        originalSetSelectedModel(
-            model
-        );
-
-
-        showModelChangedFeedback(
-            model
-        );
-
-    };
-
-
-/* ============================================================
-   INITIAL MODEL UI UPDATE
-============================================================ */
-
-updateModelSelectorUI();
-
-
-/* ============================================================
-   INITIAL CHAT STATE
-============================================================ */
-
-function initializeChatUI() {
-
-    if (!messagesContainer) {
-        return;
-    }
-
-
-    /*
-       If there is no active conversation,
-       show the welcome screen.
-    */
-
-    if (
-        messages.length === 0 &&
-        welcomeScreen
+    /* ========================================================
+       API
+    ======================================================== */
+
+    function getFriendlyErrorMessage(
+        error
     ) {
 
+        const raw =
+            safeText(
+                error?.message
+            );
+
+        const lower =
+            raw.toLowerCase();
+
         if (
-            !messagesContainer.contains(
-                welcomeScreen
+            lower.includes(
+                "failed to fetch"
+            ) ||
+            lower.includes(
+                "networkerror"
+            ) ||
+            lower.includes(
+                "network error"
             )
         ) {
 
-            messagesContainer.appendChild(
-                welcomeScreen
+            return (
+                "Sorry, I couldn't connect to Volby right now. " +
+                "Please check your internet connection and try again."
             );
-
         }
 
+        if (
+            lower.includes(
+                "cors"
+            )
+        ) {
 
-        welcomeScreen.style.display =
-            "";
+            return (
+                "Volby's server rejected the browser request. " +
+                "Please check the backend CORS settings."
+            );
+        }
 
+        if (
+            lower.includes(
+                "model_not_found"
+            ) ||
+            lower.includes(
+                "model does not exist"
+            )
+        ) {
+
+            return (
+                "The selected Volby model is unavailable. " +
+                "Please switch models and try again."
+            );
+        }
+
+        if (
+            lower.includes(
+                "500"
+            )
+        ) {
+
+            return (
+                "Volby's server returned an internal error. " +
+                "Please try again in a moment."
+            );
+        }
+
+        return (
+            raw ||
+            "Something went wrong while connecting to Volby."
+        );
     }
 
+    async function requestAIResponse() {
+
+        if (!messages.length) {
+            return;
+        }
+
+        const thinkingMessage =
+            addLoadingMessage();
+
+        setSendingState(true);
+
+        try {
+
+            const response =
+                await fetch(
+                    BACKEND_URL,
+                    {
+                        method:
+                            "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body:
+                            JSON.stringify({
+                                messages:
+                                    messages.map(
+                                        message => ({
+                                            role:
+                                                message.role,
+                                            content:
+                                                message.content
+                                        })
+                                    ),
+                                model:
+                                    selectedModel
+                            })
+                    }
+                );
+
+            let data =
+                null;
+
+            try {
+
+                data =
+                    await response.json();
+
+            } catch (jsonError) {
+
+                console.error(
+                    "Invalid JSON response:",
+                    jsonError
+                );
+            }
+
+            if (!response.ok) {
+
+                const serverError =
+                    data?.detail ||
+                    data?.error ||
+                    `Server returned ${response.status}`;
+
+                throw new Error(
+                    String(
+                        serverError
+                    )
+                );
+            }
+
+            const answer =
+                data?.response ||
+                data?.message ||
+                data?.answer;
+
+            if (
+                typeof answer !==
+                    "string" ||
+                !answer.trim()
+            ) {
+
+                throw new Error(
+                    "Volby returned an empty response."
+                );
+            }
+
+            if (
+                thinkingMessage
+            ) {
+                thinkingMessage.remove();
+            }
+
+            addConversationMessage(
+                "assistant",
+                answer
+            );
+
+            addAssistantMessageWithActions(
+                answer,
+                data?.model_used ||
+                    (
+                        selectedModel ===
+                        "openrouter"
+                            ? "Volby Pro"
+                            : "Volby"
+                    )
+            );
+
+            updateCurrentChatHistory();
+            scrollToBottom();
+
+        } catch (error) {
+
+            console.error(
+                "Volby API error:",
+                error
+            );
+
+            if (
+                thinkingMessage
+            ) {
+                thinkingMessage.remove();
+            }
+
+            addAssistantMessageWithActions(
+                getFriendlyErrorMessage(
+                    error
+                ),
+                "Volby"
+            );
+
+        } finally {
+
+            setSendingState(
+                false
+            );
+
+            if (input) {
+                input.focus();
+            }
+        }
+    }
+
+    /* ========================================================
+       SEND
+    ======================================================== */
+
+    async function sendMessage() {
+
+        if (
+            !input ||
+            isSending
+        ) {
+            return;
+        }
+
+        const text =
+            input.value.trim();
+
+        if (!text) {
+            input.focus();
+            return;
+        }
+
+        if (
+            text.length >
+            MAX_MESSAGE_LENGTH
+        ) {
+
+            alert(
+                "Your message is too long. Please keep it under 10,000 characters."
+            );
+
+            return;
+        }
+
+        if (welcomeScreen) {
+            welcomeScreen.style.display =
+                "none";
+        }
+
+        addConversationMessage(
+            "user",
+            text
+        );
+
+        addUserMessageWithActions(
+            text
+        );
+
+        input.value =
+            "";
+
+        updateCharacterCount();
+        autoResize();
+
+        if (!currentChatId) {
+
+            createHistoryEntry(
+                text
+            );
+
+        } else {
+
+            updateCurrentChatHistory();
+        }
+
+        scrollToBottom();
+
+        await requestAIResponse();
+    }
+
+    if (sendButton) {
+        sendButton.addEventListener(
+            "click",
+            sendMessage
+        );
+    }
+
+    /* ========================================================
+       REGENERATE
+    ======================================================== */
+
+    async function regenerateLastResponse() {
+
+        if (isSending) {
+            return;
+        }
+
+        let lastUserIndex =
+            -1;
+
+        for (
+            let i =
+                messages.length - 1;
+            i >= 0;
+            i--
+        ) {
+
+            if (
+                messages[i].role ===
+                "user"
+            ) {
+
+                lastUserIndex =
+                    i;
+
+                break;
+            }
+        }
+
+        if (
+            lastUserIndex ===
+            -1
+        ) {
+            return;
+        }
+
+        messages =
+            messages.slice(
+                0,
+                lastUserIndex + 1
+            );
+
+        if (messagesContainer) {
+
+            messagesContainer.innerHTML =
+                "";
+
+            if (welcomeScreen) {
+                welcomeScreen.style.display =
+                    "none";
+            }
+
+            messages.forEach(
+                message => {
+                    addMessageToUI(
+                        message.role,
+                        message.content
+                    );
+                }
+            );
+        }
+
+        updateCurrentChatHistory();
+
+        await requestAIResponse();
+    }
+
+    /* ========================================================
+       MODEL TOAST
+    ======================================================== */
+
+    function showModelChangedFeedback(
+        model
+    ) {
+
+        const option =
+            MODEL_OPTIONS.find(
+                item =>
+                    item.value ===
+                    model
+            );
+
+        if (!option) {
+            return;
+        }
+
+        const existing =
+            document.getElementById(
+                "volby-model-toast"
+            );
+
+        if (existing) {
+            existing.remove();
+        }
+
+        const toast =
+            document.createElement(
+                "div"
+            );
+
+        toast.id =
+            "volby-model-toast";
+
+        toast.className =
+            "volby-toast";
+
+        toast.textContent =
+            `${option.label} selected`;
+
+        body.appendChild(
+            toast
+        );
+
+        requestAnimationFrame(
+            () => {
+                toast.classList.add(
+                    "show"
+                );
+            }
+        );
+
+        setTimeout(
+            () => {
+
+                toast.classList.remove(
+                    "show"
+                );
+
+                setTimeout(
+                    () => {
+                        toast.remove();
+                    },
+                    250
+                );
+
+            },
+            1600
+        );
+    }
+
+    /* ========================================================
+       AUTH
+    ======================================================== */
+
+    function createAuthScreen() {
+
+        if (
+            document.getElementById(
+                "volby-auth-screen"
+            )
+        ) {
+            return;
+        }
+
+        const authScreen =
+            document.createElement(
+                "div"
+            );
+
+        authScreen.id =
+            "volby-auth-screen";
+
+        authScreen.innerHTML = `
+            <div class="auth-backdrop"></div>
+
+            <div class="auth-box">
+
+                <div class="auth-logo">
+                    <img
+                        src="volby-logo.png"
+                        alt="Volby AI"
+                    >
+                </div>
+
+                <div class="auth-brand">
+                    <span class="auth-brand-name">
+                        VOLBY
+                    </span>
+
+                    <span class="auth-brand-subtitle">
+                        AI
+                    </span>
+                </div>
+
+                <h2>
+                    Welcome to Volby
+                </h2>
+
+                <p class="auth-subtitle">
+                    Your intelligent AI assistant.
+                </p>
+
+                <div
+                    id="auth-error"
+                    class="auth-error"
+                ></div>
+
+                <div class="auth-input-group">
+                    <label for="auth-email">
+                        Email
+                    </label>
+
+                    <input
+                        id="auth-email"
+                        type="email"
+                        placeholder="Enter your email"
+                        autocomplete="email"
+                    >
+                </div>
+
+                <div class="auth-input-group">
+                    <label for="auth-password">
+                        Password
+                    </label>
+
+                    <input
+                        id="auth-password"
+                        type="password"
+                        placeholder="Enter your password"
+                        autocomplete="current-password"
+                    >
+                </div>
+
+                <button
+                    id="auth-submit"
+                    class="auth-submit"
+                    type="button"
+                >
+                    Log In
+                </button>
+
+                <button
+                    id="auth-toggle"
+                    class="auth-toggle"
+                    type="button"
+                >
+                    Don't have an account? Sign Up
+                </button>
+
+                <p class="auth-note">
+                    Your account keeps your Volby experience connected.
+                </p>
+
+            </div>
+        `;
+
+        body.appendChild(
+            authScreen
+        );
+
+        const emailInput =
+            document.getElementById(
+                "auth-email"
+            );
+
+        const passwordInput =
+            document.getElementById(
+                "auth-password"
+            );
+
+        const submitButton =
+            document.getElementById(
+                "auth-submit"
+            );
+
+        const toggleButton =
+            document.getElementById(
+                "auth-toggle"
+            );
+
+        const errorElement =
+            document.getElementById(
+                "auth-error"
+            );
+
+        let isSignup =
+            false;
+
+        toggleButton.addEventListener(
+            "click",
+            () => {
+
+                isSignup =
+                    !isSignup;
+
+                submitButton.textContent =
+                    isSignup
+                        ? "Create Account"
+                        : "Log In";
+
+                toggleButton.textContent =
+                    isSignup
+                        ? "Already have an account? Log In"
+                        : "Don't have an account? Sign Up";
+
+                errorElement.textContent =
+                    "";
+            }
+        );
+
+        async function authenticate() {
+
+            if (!supabaseClient) {
+
+                errorElement.textContent =
+                    "Authentication service is unavailable. Please check that the Supabase script is loaded.";
+
+                return;
+            }
+
+            const email =
+                emailInput.value.trim();
+
+            const password =
+                passwordInput.value;
+
+            errorElement.textContent =
+                "";
+
+            if (
+                !email ||
+                !password
+            ) {
+
+                errorElement.textContent =
+                    "Please enter your email and password.";
+
+                return;
+            }
+
+            if (
+                password.length <
+                6
+            ) {
+
+                errorElement.textContent =
+                    "Password must be at least 6 characters.";
+
+                return;
+            }
+
+            submitButton.disabled =
+                true;
+
+            submitButton.textContent =
+                isSignup
+                    ? "Creating account..."
+                    : "Logging in...";
+
+            try {
+
+                let result;
+
+                if (isSignup) {
+
+                    result =
+                        await supabaseClient.auth.signUp({
+                            email:
+                                email,
+                            password:
+                                password
+                        });
+
+                } else {
+
+                    result =
+                        await supabaseClient.auth.signInWithPassword({
+                            email:
+                                email,
+                            password:
+                                password
+                        });
+                }
+
+                if (
+                    result.error
+                ) {
+                    throw result.error;
+                }
+
+                if (
+                    isSignup &&
+                    result.data.user &&
+                    !result.data.session
+                ) {
+
+                    errorElement.textContent =
+                        "Account created. Check your email to confirm your account.";
+
+                    submitButton.disabled =
+                        false;
+
+                    submitButton.textContent =
+                        "Create Account";
+
+                    return;
+                }
+
+                currentUser =
+                    result.data.user ||
+                    null;
+
+                authScreen.remove();
+
+                showAuthenticatedUI();
+
+            } catch (error) {
+
+                console.error(
+                    "Authentication error:",
+                    error
+                );
+
+                errorElement.textContent =
+                    error.message ||
+                    "Authentication failed.";
+
+                submitButton.disabled =
+                    false;
+
+                submitButton.textContent =
+                    isSignup
+                        ? "Create Account"
+                        : "Log In";
+            }
+        }
+
+        submitButton.addEventListener(
+            "click",
+            authenticate
+        );
+
+        passwordInput.addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.key ===
+                    "Enter"
+                ) {
+                    authenticate();
+                }
+            }
+        );
+
+        emailInput.focus();
+    }
+
+    function showAuthenticatedUI() {
+
+        body.classList.add(
+            "authenticated"
+        );
+
+        addLogoutButton();
+        createModelSelector();
+    }
+
+    function addLogoutButton() {
+
+        if (
+            document.getElementById(
+                "volby-logout-button"
+            )
+        ) {
+            return;
+        }
+
+        const sidebarBottom =
+            document.querySelector(
+                ".sidebar-bottom"
+            );
+
+        if (!sidebarBottom) {
+            return;
+        }
+
+        const logoutButton =
+            document.createElement(
+                "button"
+            );
+
+        logoutButton.id =
+            "volby-logout-button";
+
+        logoutButton.className =
+            "about-button";
+
+        logoutButton.type =
+            "button";
+
+        logoutButton.innerHTML =
+            "↪ <span>Log Out</span>";
+
+        logoutButton.addEventListener(
+            "click",
+            async () => {
+
+                if (
+                    !supabaseClient
+                ) {
+                    return;
+                }
+
+                if (
+                    !confirm(
+                        "Are you sure you want to log out?"
+                    )
+                ) {
+                    return;
+                }
+
+                logoutButton.disabled =
+                    true;
+
+                try {
+
+                    const result =
+                        await supabaseClient.auth.signOut();
+
+                    if (
+                        result.error
+                    ) {
+                        throw result.error;
+                    }
+
+                    currentUser =
+                        null;
+
+                    body.classList.remove(
+                        "authenticated"
+                    );
+
+                    logoutButton.remove();
+
+                    createAuthScreen();
+
+                } catch (error) {
+
+                    console.error(
+                        "Logout error:",
+                        error
+                    );
+
+                    alert(
+                        "Could not log out. Please try again."
+                    );
+
+                    logoutButton.disabled =
+                        false;
+                }
+            }
+        );
+
+        sidebarBottom.appendChild(
+            logoutButton
+        );
+    }
+
+    async function initializeAuthentication() {
+
+        if (!supabaseClient) {
+
+            /*
+             * Do not completely kill the UI if the
+             * Supabase CDN script failed to load.
+             */
+            console.warn(
+                "Skipping Supabase authentication initialization."
+            );
+
+            body.classList.add(
+                "authenticated"
+            );
+
+            createModelSelector();
+
+            return;
+        }
+
+        try {
+
+            const result =
+                await supabaseClient.auth.getSession();
+
+            if (
+                result.error
+            ) {
+                throw result.error;
+            }
+
+            const session =
+                result.data?.session;
+
+            if (
+                session?.user
+            ) {
+
+                currentUser =
+                    session.user;
+
+                showAuthenticatedUI();
+
+            } else {
+
+                createAuthScreen();
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Session initialization error:",
+                error
+            );
+
+            createAuthScreen();
+        }
+
+        supabaseClient.auth.onAuthStateChange(
+            (
+                event,
+                session
+            ) => {
+
+                if (
+                    session?.user
+                ) {
+
+                    currentUser =
+                        session.user;
+
+                    body.classList.add(
+                        "authenticated"
+                    );
+
+                    const authScreen =
+                        document.getElementById(
+                            "volby-auth-screen"
+                        );
+
+                    if (
+                        authScreen
+                    ) {
+                        authScreen.remove();
+                    }
+
+                    showAuthenticatedUI();
+
+                } else {
+
+                    currentUser =
+                        null;
+
+                    body.classList.remove(
+                        "authenticated"
+                    );
+                }
+            }
+        );
+    }
+
+    /* ========================================================
+       GLOBAL KEYBOARD / NETWORK
+    ======================================================== */
+
+    document.addEventListener(
+        "keydown",
+        event => {
+
+            if (
+                event.key ===
+                "Escape"
+            ) {
+
+                closeSidebarMenu();
+                closeAboutModal();
+
+                const modelMenu =
+                    document.getElementById(
+                        "model-selector-menu"
+                    );
+
+                const modelButton =
+                    document.getElementById(
+                        "current-model-button"
+                    );
+
+                if (modelMenu) {
+                    modelMenu.classList.remove(
+                        "open"
+                    );
+                }
+
+                if (modelButton) {
+                    modelButton.setAttribute(
+                        "aria-expanded",
+                        "false"
+                    );
+                }
+            }
+
+            if (
+                (event.ctrlKey ||
+                    event.metaKey) &&
+                event.key.toLowerCase() ===
+                    "k"
+            ) {
+
+                event.preventDefault();
+
+                if (input) {
+                    input.focus();
+                }
+            }
+        }
+    );
+
+    document.addEventListener(
+        "click",
+        event => {
+
+            const modelSelector =
+                document.getElementById(
+                    "volby-model-selector"
+                );
+
+            const modelMenu =
+                document.getElementById(
+                    "model-selector-menu"
+                );
+
+            const modelButton =
+                document.getElementById(
+                    "current-model-button"
+                );
+
+            if (
+                modelSelector &&
+                modelMenu &&
+                !modelSelector.contains(
+                    event.target
+                )
+            ) {
+
+                modelMenu.classList.remove(
+                    "open"
+                );
+
+                if (modelButton) {
+                    modelButton.setAttribute(
+                        "aria-expanded",
+                        "false"
+                    );
+                }
+            }
+        }
+    );
+
+    window.addEventListener(
+        "online",
+        () => {
+            body.classList.remove(
+                "offline"
+            );
+        }
+    );
+
+    window.addEventListener(
+        "offline",
+        () => {
+            body.classList.add(
+                "offline"
+            );
+        }
+    );
+
+    /* ========================================================
+       INITIALIZATION
+    ======================================================== */
+
+    loadTheme();
 
     updateCharacterCount();
 
     autoResize();
 
-}
+    updateInputPlaceholder();
 
+    updateSendButtonState();
 
-/* ============================================================
-   GLOBAL KEYBOARD SHORTCUTS
-============================================================ */
+    createModelSelector();
 
-document.addEventListener(
-    "keydown",
-    event => {
+    renderChatHistory();
 
-        /*
-           Ctrl/Cmd + K
-           = focus chat input
-        */
-
-        if (
-            (event.ctrlKey ||
-                event.metaKey) &&
-            event.key.toLowerCase() === "k"
-        ) {
-
-            event.preventDefault();
-
-
-            if (input) {
-
-                input.focus();
-
-            }
-
-        }
-
-
-        /*
-           Escape closes sidebar
-        */
-
-        if (
-            event.key === "Escape"
-        ) {
-
-            closeSidebarMenu();
-
-        }
-
+    if (
+        messagesContainer &&
+        messages.length === 0 &&
+        welcomeScreen &&
+        !messagesContainer.contains(
+            welcomeScreen
+        )
+    ) {
+        messagesContainer.appendChild(
+            welcomeScreen
+        );
     }
-);
 
-
-/* ============================================================
-   ONLINE / OFFLINE STATUS
-============================================================ */
-
-window.addEventListener(
-    "online",
-    () => {
-
-        document.body.classList.remove(
+    if (
+        !navigator.onLine
+    ) {
+        body.classList.add(
             "offline"
         );
-
     }
-);
 
+    initializeAuthentication();
 
-window.addEventListener(
-    "offline",
-    () => {
-
-        document.body.classList.add(
-            "offline"
-        );
-
-    }
-);
-
-
-if (!navigator.onLine) {
-
-    document.body.classList.add(
-        "offline"
+    console.log(
+        "Volby AI initialized successfully."
     );
 
-}
+    console.log(
+        "Selected model:",
+        selectedModel
+    );
 
+    console.log(
+        "Backend:",
+        BACKEND_URL
+    );
 
-/* ============================================================
-   INITIALIZE AUTHENTICATION
-============================================================ */
-
-initializeChatUI();
-
-
-initializeAuthentication();
-
-
-/* ============================================================
-   VOLBY READY
-============================================================ */
-
-console.log(
-    "Volby AI initialized successfully."
-);
-
-console.log(
-    "Selected model:",
-    selectedModel
-);
-
-console.log(
-    "Backend:",
-    BACKEND_URL
-);
-
-
-/* ============================================================
-   END OF SCRIPT
-============================================================ */
+})();
